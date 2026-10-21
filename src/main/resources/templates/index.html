@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Frame Viewer</title>
+  <link rel="stylesheet" href="vendor/jstree/themes/default/style.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="topbar"><span class="brand">Frame Viewer</span>
+    <span class="hint">rst-on-lisp: subject trees, frames, samples and their sources. ★ marks a node with a frame.</span></div>
+  <div class="layout">
+    <div id="tree" class="tree"></div>
+    <div id="panel"><p class="hint">Select a node marked ★.</p></div>
+  </div>
+  <script src="vendor/jquery-3.7.1.min.js"></script>
+  <script src="vendor/jstree/jstree.min.js"></script>
+  <script>
+  $(function () {
+    var $tree = $('#tree');
+    var $panel = $('#panel');
+
+    function show(path) {
+      $.get('frame', { path: path }, function (html) { $panel.html(html); $panel.scrollTop(0); });
+    }
+
+    $tree.jstree({
+      core: { themes: { dots: false, responsive: true }, data: { url: 'tree', dataType: 'json' } },
+      plugins: ['wholerow', 'state'],
+      state: { key: 'frame-viewer-tree' }
+    });
+
+    $tree.on('select_node.jstree', function (e, data) {
+      var path = data.node.li_attr && data.node.li_attr['data-frame'];
+      if (path) { show(path); }
+    });
+
+    // A link to another frame inside the panel opens that frame.
+    $panel.on('click', 'a.frame-link', function (e) {
+      e.preventDefault();
+      show($(this).attr('data-frame'));
+    });
+  });
+  </script>
+</body>
+</html>

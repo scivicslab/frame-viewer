@@ -1,0 +1,24 @@
+body { font-family: system-ui, sans-serif; margin: 0; color: #222; }
+.topbar { padding: 8px 16px; border-bottom: 1px solid #ddd; }
+.brand { font-weight: 700; margin-right: 16px; }
+.hint { color: #777; font-size: 0.9em; }
+.layout { display: flex; height: calc(100vh - 42px); }
+#tree { width: 34%; overflow: auto; border-right: 1px solid #ddd; padding: 8px; }
+#panel { flex: 1; overflow: auto; padding: 8px 20px; }
+.has-frame > a { font-weight: 600; }
+table.headers { border-collapse: collapse; font-size: 0.85em; margin-bottom: 8px; }
+table.headers th { text-align: left; vertical-align: top; padding: 2px 8px 2px 0; color: #555; white-space: nowrap; }
+table.headers td { white-space: pre-wrap; padding: 2px 0; }
+ul.rules, ul.rules ul { list-style: none; padding-left: 18px; margin: 2px 0; border-left: 1px dotted #ccc; }
+li.rule { margin: 3px 0; }
+.name { font-family: monospace; }
+.relation { color: #7a4; font-family: monospace; font-size: 0.85em; }
+.badge { background: #eef; border-radius: 3px; padding: 0 4px; font-size: 0.8em; }
+li.blank > .name { color: #a50; }
+li.rank-secondary { opacity: 0.6; }
+.instruction { margin: 2px 0 0 4px; }
+.sample { margin: 2px 0 0 4px; color: #357; font-style: italic; font-size: 0.9em; }
+.child { margin: 2px 0 0 4px; font-size: 0.9em; }
+li.text { color: #333; }
+dl.source dt { font-family: monospace; margin-top: 6px; }
+dl.source dd { margin-left: 16px; }
