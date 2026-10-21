@@ -81,6 +81,26 @@ public class ViewerResource {
         return new SourcePanel(new Sources(lib, this::readUnderWorks)).render(file);
     }
 
+    /** The left pane of the concrete-frame tab: the frame file as it is, with its header words linked to paragraphs. */
+    @GET
+    @jakarta.ws.rs.Path("raw-frame")
+    @Produces(MediaType.TEXT_HTML)
+    public String rawFrame(@QueryParam("path") String path) {
+        if (path == null || path.isBlank()) return "<p class=\"hint\">No frame given.</p>";
+        Library lib = load();
+        return new RawPanel(lib, new Sources(lib, this::readUnderWorks)).frame(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
+    }
+
+    /** The right pane of the concrete-frame tab: one source file as it is, the paragraphs the frame names marked. */
+    @GET
+    @jakarta.ws.rs.Path("raw-source")
+    @Produces(MediaType.TEXT_HTML)
+    public String rawSource(@QueryParam("file") String file, @QueryParam("frame") String frame) {
+        if (file == null || file.isBlank()) return "<p class=\"hint\">No source given.</p>";
+        Library lib = load();
+        return new RawPanel(lib, new Sources(lib, this::readUnderWorks)).source(file, readUnderWorks(file), frame == null ? "" : frame);
+    }
+
     /** The source files grouped by the directory of the book or paper they belong to. */
     static List<Library.TreeNode> sourceTree(Sources sources) {
         List<Library.TreeNode> out = new java.util.ArrayList<>();
@@ -112,7 +132,12 @@ public class ViewerResource {
 
     /** @return the text of a file under the works directory, or null when it is missing or outside the directory */
     String readUnderWorks(String relative) {
-        Path base = Path.of(worksDir).toAbsolutePath().normalize();
+        return readUnder(Path.of(worksDir), relative);
+    }
+
+    /** @return the text of a file under {@code dir}, or null when it is missing or outside {@code dir} */
+    private static String readUnder(Path dir, String relative) {
+        Path base = dir.toAbsolutePath().normalize();
         Path p = base.resolve(relative).normalize();
         if (!p.startsWith(base) || !Files.isRegularFile(p)) return null;
         return read(p);

@@ -17,7 +17,9 @@
     </span>
     <span class="hint">★ marks a tag with a frame. Every name in a panel is a link to its own tab.</span></div>
   <div class="layout" data-tab="tags"><div class="tree"></div><div class="panel"><p class="hint">Select a tag. Tags marked ★ have a concrete frame.</p></div></div>
-  <div class="layout" data-tab="concrete"><div class="tree"></div><div class="panel"><p class="hint">Select a concrete frame.</p></div></div>
+  <div class="layout" data-tab="concrete"><div class="tree"></div><div class="panel split">
+    <div class="pane frame-pane"><p class="hint">Select a concrete frame. It shows here, and its source beside it.</p></div>
+    <div class="pane source-pane"></div></div></div>
   <div class="layout" data-tab="sources"><div class="tree"></div><div class="panel"><p class="hint">Select a source file.</p></div></div>
   <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel"><p class="hint">Select an integrated frame.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
@@ -51,7 +53,33 @@
       });
     }
 
-    function openFrame(path) { load(path.indexOf('explanation/') === 0 ? 'integrated' : 'concrete', 'frame', { path: path }); }
+    // A concrete frame opens as text in the left pane and its first source file beside it.
+    var shownFrame = null, shownSource = null;
+    function openFrame(path) {
+      if (path.indexOf('explanation/') === 0) { load('integrated', 'frame', { path: path }); return; }
+      showTab('concrete');
+      var $pane = pane('concrete').find('.frame-pane');
+      $.get('raw-frame', { path: path }, function (html) {
+        $pane.html(html);
+        $pane.scrollTop(0);
+        shownFrame = path;
+        shownSource = null;
+        var $first = $pane.find('a.raw-file').first();
+        if ($first.length) { openRawSource($first.attr('data-source')); } else { pane('concrete').find('.source-pane').html('<p class="hint">This frame names no source file.</p>'); }
+      });
+    }
+
+    // Shows a source file in the right pane, then brings a paragraph into view when one is named.
+    function openRawSource(file, rule) {
+      var $pane = pane('concrete').find('.source-pane');
+      function reveal() {
+        pane('concrete').find('a.raw-file').removeClass('active').filter(function () { return $(this).attr('data-source') === file; }).addClass('active');
+        var $a = rule ? $pane.find('[id="L-' + rule + '"]') : $();
+        if ($a.length) { $pane.scrollTop($a.position().top + $pane.scrollTop() - 40); } else if (!rule) { $pane.scrollTop(0); }
+      }
+      if (shownSource === file) { reveal(); return; }
+      $.get('raw-source', { file: file, frame: shownFrame }, function (html) { $pane.html(html); shownSource = file; reveal(); });
+    }
     function openTag(tag) { load('tags', 'tag', { tag: tag }); }
     function openSource(file, rule) { load('sources', 'source', { file: file }, rule); }
 
@@ -70,6 +98,9 @@
         else if (a['data-source']) { openSource(a['data-source']); }
       });
     });
+
+    $(document).on('click', '.frame-pane a.raw-file', function (e) { e.preventDefault(); openRawSource($(this).attr('data-source')); });
+    $(document).on('click', '.frame-pane a.raw-rule', function (e) { e.preventDefault(); openRawSource($(this).attr('data-source'), $(this).attr('data-rule')); });
 
     $('.tab').on('click', function (e) { e.preventDefault(); showTab($(this).attr('data-tab')); });
 

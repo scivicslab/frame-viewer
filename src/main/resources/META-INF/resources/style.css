@@ -35,3 +35,14 @@ dl.source dd { margin-left: 16px; }
 .claim-left-out { background: #f4e6e6; }
 .para.covered { border-left-color: #cde3cd; }
 .para.unclaimed { border-left-color: #e6b0b0; background: #fdf6f6; }
+.layout .panel.split { display: flex; padding: 0; overflow: hidden; }
+.split .pane { flex: 1; overflow: auto; padding: 8px 12px; position: relative; min-width: 0; }
+.split .frame-pane { border-right: 1px solid #ddd; }
+pre.raw { font-size: 0.82em; line-height: 1.35; white-space: pre-wrap; word-break: break-word; margin: 6px 0; }
+pre.raw .hit { background: #e6f4e6; }
+.raw-head { font-size: 0.85em; padding-bottom: 4px; border-bottom: 1px solid #eee; }
+.raw-files { margin-top: 4px; }
+a.raw-file { font-size: 0.85em; margin-right: 6px; }
+a.raw-file.active { font-weight: 700; background: #357; color: #fff; padding: 0 4px; border-radius: 3px; }
+a.raw-rule { color: #357; }
+.layout[data-tab=concrete] .tree { width: 18%; }
