@@ -1,9 +1,7 @@
 package com.scivicslab.frameviewer;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -40,7 +38,7 @@ class FramePanelTest {
             """);
 
     private static String render() {
-        return new FramePanel(library(), WORKS::get).render("subject/b/design.lisp");
+        return new FramePanel(library(), new Sources(library(), WORKS::get)).render("subject/b/design.lisp");
     }
 
     @Test
@@ -62,17 +60,27 @@ class FramePanelTest {
     @Test
     void membersAndLeftOutParagraphsComeFromTheBooksRuleFile() {
         String html = render();
-        assertTrue(html.contains("<dt>p-plan</dt><dd>In this chapter we present an overview.</dd>"), html);
-        assertTrue(html.contains("<h4>left-out</h4><dl class=\"source\"><dt>p-aside</dt><dd>An aside.</dd>"));
+        assertTrue(html.contains("data-rule=\"p-plan\">p-plan</a></dt><dd>In this chapter we present an overview.</dd>"), html);
+        assertTrue(html.contains("<h4>left-out</h4><dl class=\"source\"><dt><a href=\"#\" class=\"source-link\""));
+        assertTrue(html.contains("data-rule=\"p-aside\">p-aside</a></dt><dd>An aside.</dd>"));
     }
 
     @Test
-    void madeFromMayListSeveralDirectoriesWithSpaces() {
-        assertEquals(List.of("doc_A/x y_p1", "doc_A/x y_p2"), FramePanel.sourceDirs("doc_A/x y_p1 doc_A/x y_p2 / s1 s2"));
+    void theTagAndTheSourceFileAreLinks() {
+        Library lib = library().addSubjects("(defsubjects b :book \"/x\")\n(subject \"23\" \"Design\")");
+        String html = new FramePanel(lib, new Sources(lib, WORKS::get)).render("subject/b/design.lisp");
+        assertTrue(html.contains("class=\"tag-link\" data-tag=\"b|23\">b 23 Design</a>"), html);
+        assertTrue(html.contains("data-source=\"" + BOOK_DIR + "/book p391-400.lisp\" data-rule=\"\""), html);
+    }
+
+    @Test
+    void aSubFrameShowsTheTopFrameItBelongsTo() {
+        String html = new FramePanel(library(), new Sources(library(), WORKS::get)).render("subject/b/design.case.lisp");
+        assertTrue(html.contains("<b>Part of:</b> <a href=\"#\" class=\"frame-link\" data-frame=\"subject/b/design.lisp\">"), html);
     }
 
     @Test
     void anUnknownFrameIsANotice() {
-        assertTrue(new FramePanel(library(), WORKS::get).render("nope.lisp").contains("No frame"));
+        assertTrue(new FramePanel(library(), new Sources(library(), WORKS::get)).render("nope.lisp").contains("No frame"));
     }
 }

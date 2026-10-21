@@ -9,38 +9,80 @@
 </head>
 <body>
   <div class="topbar"><span class="brand">Frame Viewer</span>
-    <span class="hint">rst-on-lisp: subject trees, frames, samples and their sources. ★ marks a node with a frame.</span></div>
-  <div class="layout">
-    <div id="tree" class="tree"></div>
-    <div id="panel"><p class="hint">Select a node marked ★.</p></div>
-  </div>
+    <span class="tabs">
+      <a href="#" class="tab" data-tab="tags">Tags</a>
+      <a href="#" class="tab" data-tab="concrete">Concrete frames</a>
+      <a href="#" class="tab" data-tab="sources">Sources</a>
+      <a href="#" class="tab" data-tab="integrated">Integrated frames</a>
+    </span>
+    <span class="hint">★ marks a tag with a frame. Every name in a panel is a link to its own tab.</span></div>
+  <div class="layout" data-tab="tags"><div class="tree"></div><div class="panel"><p class="hint">Select a tag. Tags marked ★ have a concrete frame.</p></div></div>
+  <div class="layout" data-tab="concrete"><div class="tree"></div><div class="panel"><p class="hint">Select a concrete frame.</p></div></div>
+  <div class="layout" data-tab="sources"><div class="tree"></div><div class="panel"><p class="hint">Select a source file.</p></div></div>
+  <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel"><p class="hint">Select an integrated frame.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
   <script src="vendor/jstree/jstree.min.js"></script>
   <script>
   $(function () {
-    var $tree = $('#tree');
-    var $panel = $('#panel');
+    function pane(tab) { return $('.layout[data-tab="' + tab + '"]'); }
 
-    function show(path) {
-      $.get('frame', { path: path }, function (html) { $panel.html(html); $panel.scrollTop(0); });
+    function showTab(tab) {
+      $('.layout').hide();
+      pane(tab).css('display', 'flex');
+      $('.tab').removeClass('active');
+      $('.tab[data-tab="' + tab + '"]').addClass('active');
+      try { localStorage.setItem('frame-viewer-tab', tab); } catch (e) { }
     }
 
-    $tree.jstree({
-      core: { themes: { dots: false, responsive: true }, data: { url: 'tree', dataType: 'json' } },
-      plugins: ['wholerow', 'state'],
-      state: { key: 'frame-viewer-tree' }
+    // Puts a panel fragment in a tab, then scrolls to the paragraph when one is named.
+    function load(tab, url, params, anchor) {
+      showTab(tab);
+      var $panel = pane(tab).find('.panel');
+      $.get(url, params, function (html) {
+        $panel.html(html);
+        var $a = anchor ? $panel.find('[id="r-' + anchor + '"]') : $();
+        if ($a.length) {
+          $panel.find('.focus').removeClass('focus');
+          $a.addClass('focus');
+          $panel.scrollTop($a.position().top + $panel.scrollTop() - 40);
+        } else {
+          $panel.scrollTop(0);
+        }
+      });
+    }
+
+    function openFrame(path) { load(path.indexOf('explanation/') === 0 ? 'integrated' : 'concrete', 'frame', { path: path }); }
+    function openTag(tag) { load('tags', 'tag', { tag: tag }); }
+    function openSource(file, rule) { load('sources', 'source', { file: file }, rule); }
+
+    $('.layout').each(function () {
+      var tab = $(this).attr('data-tab');
+      var $tree = $(this).find('.tree');
+      $tree.jstree({
+        core: { themes: { dots: false, responsive: true }, data: { url: 'tree?tab=' + tab, dataType: 'json' } },
+        plugins: ['wholerow', 'state'],
+        state: { key: 'frame-viewer-tree-' + tab }
+      });
+      $tree.on('select_node.jstree', function (e, data) {
+        var a = data.node.li_attr || {};
+        if (a['data-frame']) { openFrame(a['data-frame']); }
+        else if (a['data-tag']) { openTag(a['data-tag']); }
+        else if (a['data-source']) { openSource(a['data-source']); }
+      });
     });
 
-    $tree.on('select_node.jstree', function (e, data) {
-      var path = data.node.li_attr && data.node.li_attr['data-frame'];
-      if (path) { show(path); }
-    });
+    $('.tab').on('click', function (e) { e.preventDefault(); showTab($(this).attr('data-tab')); });
 
-    // A link to another frame inside the panel opens that frame.
-    $panel.on('click', 'a.frame-link', function (e) {
+    $(document).on('click', '.panel a.frame-link', function (e) { e.preventDefault(); openFrame($(this).attr('data-frame')); });
+    $(document).on('click', '.panel a.tag-link', function (e) { e.preventDefault(); openTag($(this).attr('data-tag')); });
+    $(document).on('click', '.panel a.source-link', function (e) {
       e.preventDefault();
-      show($(this).attr('data-frame'));
+      openSource($(this).attr('data-source'), $(this).attr('data-rule'));
     });
+
+    var first = 'tags';
+    try { first = localStorage.getItem('frame-viewer-tab') || 'tags'; } catch (e) { }
+    showTab(first);
   });
   </script>
 </body>

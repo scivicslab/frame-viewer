@@ -50,12 +50,30 @@ class LibraryTest {
     }
 
     @Test
-    void theTreeMarksFramedNodesAndListsOnlyTopIntegratedFrames() {
-        List<Library.TreeNode> tree = library().tree();
+    void theTagTreeMarksFramedNodes() {
+        List<Library.TreeNode> tree = library().tagTree();
         Library.TreeNode design = tree.stream().filter(n -> n.id().equals("s:globus:23")).findFirst().orElseThrow();
-        assertEquals(Map.of("data-frame", "subject/filebuy/design.lisp", "class", "has-frame"), design.li_attr());
+        assertEquals(Map.of("data-tag", "globus|23", "class", "has-frame"), design.li_attr());
         assertEquals("s:globus:23.4", tree.stream().filter(n -> n.id().equals("s:globus:23.4.1")).findFirst().orElseThrow().parent());
-        List<String> integrated = tree.stream().filter(n -> "integrated".equals(n.parent())).map(Library.TreeNode::id).toList();
-        assertEquals(List.of("f:explanation/explain-program.lisp"), integrated);
+        assertEquals(Map.of("data-tag", "globus|24"), tree.stream().filter(n -> n.id().equals("s:globus:24")).findFirst().orElseThrow().li_attr());
+    }
+
+    @Test
+    void theFrameTreesKeepTheKindsApartAndPutSubFramesUnderTheirTop() {
+        Library lib = library();
+        List<Library.TreeNode> concrete = lib.frameTree(false);
+        assertEquals("f:subject/filebuy/design.lisp",
+                concrete.stream().filter(n -> n.id().equals("f:subject/filebuy/design.deployment.lisp")).findFirst().orElseThrow().parent());
+        assertTrue(concrete.stream().noneMatch(n -> n.id().startsWith("f:explanation/")));
+        List<String> integrated = lib.frameTree(true).stream().map(Library.TreeNode::id).toList();
+        assertEquals(List.of("d:explanation/", "f:explanation/explain-program.lisp", "f:explanation/explain-program.flow.lisp"), integrated);
+    }
+
+    @Test
+    void aSectionNumberedByItsChapterHangsUnderTheChapter() {
+        Library lib = new Library().addSubjects("(defsubjects lkn :book \"/x\")\n(subject \"1\" \"Intro\")\n(subject \"1/Sec1\" \"Stack\")")
+                .addFrame("subject/lkn/stack.lisp", ";;; subject: lkn 1/Sec1 Stack\n(defrule d -> p)");
+        assertEquals("1", lib.books().get("lkn").get(1).parent());
+        assertEquals("Stack", lib.subjectOf(lib.frame("subject/lkn/stack.lisp")).title());
     }
 }

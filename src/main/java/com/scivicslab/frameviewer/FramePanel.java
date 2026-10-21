@@ -6,7 +6,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * Writes the right-hand panel for one frame as an HTML fragment: its header lines, the frames it integrates or is
@@ -14,19 +13,19 @@ import java.util.function.Function;
  * rank, and the child frames of {@code :include} and {@code :frame} opened in place), and the paragraphs of the
  * source text its {@code members}, {@code elsewhere} and {@code left-out} lines name.
  *
- * <p>Pure: the frame library is handed in, and the books' rule files are read through {@code readWorks}, which takes
- * a path under the works directory and returns the file's text or null.
+ * <p>Every other item it names is a link: the subject tag, the frames it integrates or is integrated into, and each
+ * source paragraph. Pure: the frame library and the source index are handed in.
  */
 public final class FramePanel {
 
     private static final int MAX_DEPTH = 40;
 
     private final Library library;
-    private final Function<String, String> readWorks;
+    private final Sources sources;
 
-    public FramePanel(Library library, Function<String, String> readWorks) {
+    public FramePanel(Library library, Sources sources) {
         this.library = library;
-        this.readWorks = readWorks;
+        this.sources = sources;
     }
 
     /** @return the fragment, or a short notice when there is no such frame */
@@ -35,10 +34,15 @@ public final class FramePanel {
         if (frame == null) return "<p class=\"hint\">No frame " + esc(path) + ".</p>";
         StringBuilder sb = new StringBuilder();
         sb.append("<div class=\"frame\"><h2>").append(esc(path)).append("</h2>");
+        Library.Subject tag = library.subjectOf(frame);
+        if (tag != null) sb.append("<p class=\"links\"><b>Tag:</b> ").append(tagLink(tag)).append("</p>");
+        if (!frame.isTop() && library.frame(frame.topPath()) != null) links("Part of", List.of(frame.topPath()), sb);
         headers(frame, sb);
-        links("Integrates", frame.integrates(), sb);
+        integrates(frame, sb);
         List<String> into = new ArrayList<>();
-        for (Library.Frame f : library.integratedInto(path)) into.add(f.path());
+        for (String p : new java.util.LinkedHashSet<>(List.of(path, frame.topPath()))) {
+            for (Library.Frame f : library.integratedInto(p)) if (!into.contains(f.path())) into.add(f.path());
+        }
         links("Integrated into", into, sb);
         sb.append("<h3>Structure</h3><ul class=\"rules\">");
         List<RuleFile.Rule> rules = frame.file().rules();
@@ -65,10 +69,37 @@ public final class FramePanel {
     private static void links(String label, List<String> paths, StringBuilder sb) {
         if (paths.isEmpty()) return;
         sb.append("<p class=\"links\"><b>").append(label).append(":</b> ");
-        for (String p : paths) {
-            sb.append("<a href=\"#\" class=\"frame-link\" data-frame=\"").append(esc(p)).append("\">").append(esc(p)).append("</a> ");
-        }
+        for (String p : paths) sb.append(frameLink(p)).append(" ");
         sb.append("</p>");
+    }
+
+    /** The concrete frames an integrated frame was made from, each with the subject tag it names. */
+    private void integrates(Library.Frame frame, StringBuilder sb) {
+        if (frame.integrates().isEmpty()) return;
+        sb.append("<h3>Integrates</h3><ul class=\"integrates\">");
+        for (String p : frame.integrates()) {
+            sb.append("<li>").append(frameLink(p));
+            Library.Frame f = library.frame(p);
+            Library.Subject tag = f == null ? null : library.subjectOf(f);
+            if (tag != null) sb.append(" — ").append(tagLink(tag));
+            else if (f == null) sb.append(" <span class=\"hint\">(no such frame)</span>");
+            sb.append("</li>");
+        }
+        sb.append("</ul>");
+    }
+
+    static String frameLink(String path) {
+        return "<a href=\"#\" class=\"frame-link\" data-frame=\"" + esc(path) + "\">" + esc(path) + "</a>";
+    }
+
+    static String tagLink(Library.Subject s) {
+        return "<a href=\"#\" class=\"tag-link\" data-tag=\"" + esc(s.book() + "|" + s.number()) + "\">"
+                + esc(s.book() + " " + s.number() + " " + s.title()) + "</a>";
+    }
+
+    static String sourceLink(String file, String rule, String text) {
+        return "<a href=\"#\" class=\"source-link\" data-source=\"" + esc(file) + "\" data-rule=\"" + esc(rule == null ? "" : rule)
+                + "\">" + esc(text) + "</a>";
     }
 
     /** Writes one rule as a list item, with the rules it names (or the child frame it points to) inside it. */
@@ -141,57 +172,27 @@ public final class FramePanel {
 
     /** The paragraphs of the source text named by the frame's {@code members}, {@code elsewhere} and {@code left-out} lines. */
     private void sources(Library.Frame frame, StringBuilder sb) {
-        List<RuleFile> books = new ArrayList<>();
-        List<String> files = new ArrayList<>();
-        for (String v : frame.file().header("made-from")) {
-            for (String dir : sourceDirs(v)) {
-                String file = dir + "/" + dir.substring(dir.lastIndexOf('/') + 1) + ".lisp";
-                String text = readWorks.apply(file);
-                if (text != null) {
-                    books.add(RuleFile.parse(text));
-                    files.add(file);
-                }
-            }
-        }
-        if (books.isEmpty()) return;
+        List<String> files = sources.filesOf(frame.path());
+        if (files.isEmpty()) return;
         sb.append("<h3>Source</h3><p class=\"hint\">");
-        for (String f : files) sb.append(esc(f)).append("<br>");
+        for (String f : files) sb.append(sourceLink(f, null, f)).append("<br>");
         sb.append("</p>");
         for (String key : List.of("members", "elsewhere", "left-out")) {
-            Map<String, List<String>> found = new LinkedHashMap<>();
+            Map<String, String> found = new LinkedHashMap<>();
             for (String v : frame.file().header(key)) {
                 for (String word : v.split("[\\s,;()]+")) {
-                    if (found.containsKey(word)) continue;
-                    for (RuleFile b : books) {
-                        if (b.rule(word) != null) {
-                            found.put(word, b.textOf(word));
-                            break;
-                        }
-                    }
+                    String file = sources.fileOf(frame.path(), word);
+                    if (file != null) found.putIfAbsent(word, file);
                 }
             }
             if (found.isEmpty()) continue;
             sb.append("<h4>").append(esc(key)).append("</h4><dl class=\"source\">");
-            for (Map.Entry<String, List<String>> e : found.entrySet()) {
-                sb.append("<dt>").append(esc(e.getKey())).append("</dt><dd>").append(esc(String.join(" ", e.getValue()))).append("</dd>");
+            for (Map.Entry<String, String> e : found.entrySet()) {
+                sb.append("<dt>").append(sourceLink(e.getValue(), e.getKey(), e.getKey())).append("</dt><dd>")
+                        .append(esc(String.join(" ", sources.file(e.getValue()).textOf(e.getKey())))).append("</dd>");
             }
             sb.append("</dl>");
         }
-    }
-
-    /**
-     * The directories a {@code made-from} value names: the part before {@code " / "}, which may list several
-     * directories, each starting with {@code doc_}. Directory names may hold spaces.
-     */
-    static List<String> sourceDirs(String madeFrom) {
-        int slash = madeFrom.indexOf(" / ");
-        String left = slash < 0 ? madeFrom : madeFrom.substring(0, slash);
-        List<String> out = new ArrayList<>();
-        for (String part : left.split(" (?=doc_)")) {
-            String p = part.strip();
-            if (p.startsWith("doc_")) out.add(p);
-        }
-        return out;
     }
 
     static String dirOf(String path) {

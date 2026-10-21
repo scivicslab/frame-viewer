@@ -34,8 +34,16 @@ public final class Library {
             List<String> s = file.header("subject");
             if (s.isEmpty()) return null;
             String[] w = s.get(0).split("\\s+");
-            if (w.length < 2 || !w[1].matches("[0-9]+(\\.[0-9]+)*")) return null;
+            if (w.length < 2) return null;
             return new String[] {w[0], w[1]};
+        }
+
+        /** @return the top frame this one belongs to: {@code design.lisp} for {@code design.use-case.lisp} */
+        public String topPath() {
+            int slash = path.lastIndexOf('/');
+            String name = path.substring(slash + 1);
+            int dot = name.indexOf('.');
+            return dot == name.lastIndexOf('.') ? path : path.substring(0, slash + 1) + name.substring(0, dot) + ".lisp";
         }
 
         /** @return the frame paths named by {@code ;;; integrates:}, as paths under {@code frames/} */
@@ -82,8 +90,9 @@ public final class Library {
 
     private static String parentOf(String number, java.util.Set<String> numbers) {
         String n = number;
-        while (n.contains(".")) {
-            n = n.substring(0, n.lastIndexOf('.'));
+        // 1.4 is under 1, and 1/Sec4 (a section numbered by its chapter only) is under 1
+        while (n.contains(".") || n.contains("/")) {
+            n = n.substring(0, Math.max(n.lastIndexOf('.'), n.lastIndexOf('/')));
             if (numbers.contains(n)) return n;
         }
         return null;
@@ -123,15 +132,27 @@ public final class Library {
         return out;
     }
 
+    /** @return the frames of one kind, concrete (under {@code subject/}) or integrated (under {@code explanation/}) */
+    public List<Frame> frames(boolean integrated) {
+        List<Frame> out = new ArrayList<>();
+        for (Frame f : frames.values()) if (f.isIntegrated() == integrated) out.add(f);
+        return out;
+    }
+
+    /** @return the subject-tag node a frame names, or null */
+    public Subject subjectOf(Frame f) {
+        String[] s = f.subject();
+        if (s == null || !books.containsKey(s[0])) return null;
+        for (Subject n : books.get(s[0])) if (n.number().equals(s[1])) return n;
+        return null;
+    }
+
     /** One node of the jstree data: flat form, the parent named by id ({@code #} for a root). */
     public record TreeNode(String id, String parent, String text, Map<String, String> li_attr) {
     }
 
-    /**
-     * The left tree: one root per book with its subject-tag tree, the nodes that have a frame marked and carrying the
-     * frame's path; then one root for the integrated frames.
-     */
-    public List<TreeNode> tree() {
+    /** The tag tab: one root per book with its subject-tag tree; the nodes that have a frame are marked. */
+    public List<TreeNode> tagTree() {
         List<TreeNode> out = new ArrayList<>();
         for (Map.Entry<String, List<Subject>> e : books.entrySet()) {
             String book = e.getKey();
@@ -140,21 +161,31 @@ public final class Library {
             for (Subject s : e.getValue()) {
                 String id = "s:" + book + ":" + s.number();
                 String parent = s.parent() == null ? root : "s:" + book + ":" + s.parent();
-                List<Frame> fs = framesOf(book, s.number());
                 String text = s.number() + " " + s.title();
-                if (fs.isEmpty()) {
-                    out.add(new TreeNode(id, parent, text, Map.of()));
-                } else {
-                    out.add(new TreeNode(id, parent, "★ " + text, Map.of("data-frame", fs.get(0).path(), "class", "has-frame")));
+                Map<String, String> attr = Map.of("data-tag", book + "|" + s.number());
+                if (!framesOf(book, s.number()).isEmpty()) {
+                    text = "★ " + text;
+                    attr = Map.of("data-tag", book + "|" + s.number(), "class", "has-frame");
                 }
+                out.add(new TreeNode(id, parent, text, attr));
             }
         }
-        out.add(new TreeNode("integrated", "#", "integrated explanation frames", Map.of()));
-        for (Frame f : frames.values()) {
-            if (f.isIntegrated() && f.isTop()) {
-                String name = f.path().substring(f.path().lastIndexOf('/') + 1);
-                out.add(new TreeNode("f:" + f.path(), "integrated", "★ " + name, Map.of("data-frame", f.path(), "class", "has-frame")));
-            }
+        return out;
+    }
+
+    /**
+     * The concrete-frame tab or the integrated-frame tab: the frames grouped by directory, each sub-frame under the
+     * top frame it belongs to.
+     */
+    public List<TreeNode> frameTree(boolean integrated) {
+        List<TreeNode> out = new ArrayList<>();
+        java.util.Set<String> dirs = new java.util.HashSet<>();
+        for (Frame f : frames(integrated)) {
+            String dir = FramePanel.dirOf(f.path());
+            if (dirs.add(dir)) out.add(new TreeNode("d:" + dir, "#", dir, Map.of()));
+            String name = f.path().substring(f.path().lastIndexOf('/') + 1);
+            String parent = f.isTop() || frame(f.topPath()) == null ? "d:" + dir : "f:" + f.topPath();
+            out.add(new TreeNode("f:" + f.path(), parent, name, Map.of("data-frame", f.path(), "class", "has-frame")));
         }
         return out;
     }
