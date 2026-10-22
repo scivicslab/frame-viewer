@@ -54,3 +54,8 @@ a.edit-link { font-size: 0.8em; margin-left: 4px; color: #a50; }
 .raw-views a.raw-view.active { background: #357; color: #fff; border-color: #357; }
 pre.raw .edges a.edge { font-size: 0.85em; color: #7a4; margin-left: 2px; }
 pre.raw .edges a.edge:hover { text-decoration: underline; }
+.example { margin: 10px 0 16px; padding: 6px 10px; border: 1px solid #e3e3e3; border-radius: 4px; background: #fcfcfa; }
+.example h4 { margin: 2px 0 6px; }
+.ex-slot { margin: 6px 0; }
+.ex-question { font-size: 0.85em; color: #357; }
+.ex-para { margin: 2px 0 2px 12px; line-height: 1.45; }

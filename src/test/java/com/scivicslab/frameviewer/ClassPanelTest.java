@@ -118,4 +118,21 @@ class ClassPanelTest {
         String html = p.render("assignments/loop.smaller.lisp", "message");
         assertTrue(html.contains("<h3>Values of it</h3><div class=\"child\">result message</div>"), html);
     }
+
+    @Test
+    void anExampleIsTheBooksParagraphsWholeInTheOrderOfTheClassesQuestionsWithGaps() {
+        String html = panel().render("assignments/loop.lisp", "result-message");
+        int ex = html.indexOf("<h3>Examples written by it</h3>");
+        assertTrue(ex > 0, html);
+        String example = html.substring(ex);
+        assertTrue(example.contains("<h4>ResultMessage</h4>"), example);
+        // carried-values (from message) comes first and the book does not answer it; then cautions, then how-it-ended
+        int carried = example.indexOf("<span class=\"name\">carried-values</span>");
+        int cautions = example.indexOf("<span class=\"name\">cautions</span>");
+        int ended = example.indexOf("<span class=\"name\">how-it-ended</span>");
+        assertTrue(carried > 0 && carried < cautions && cautions < ended, example);
+        assertTrue(example.contains("(this book does not answer it for ResultMessage)"), example);
+        assertTrue(example.contains("data-rule=\"p-guard\" title=\"open in the source pane\">p-guard</a> After a crash the cost may be zero."), example);
+        assertTrue(example.contains("<span class=\"name\">aside</span>"), example);
+    }
 }

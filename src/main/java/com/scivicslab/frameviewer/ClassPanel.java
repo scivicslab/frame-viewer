@@ -129,6 +129,8 @@ public final class ClassPanel {
                 sb.append("</div>");
             }
 
+            appendExamples(sb, set, cls, c);
+
             sb.append("<h3>As written</h3><pre class=\"raw\">").append(Html.esc(c.source(cls))).append("</pre>");
             return sb.toString();
         }
@@ -139,6 +141,88 @@ public final class ClassPanel {
 
     private String classLinkIn(String cls) {
         return classLink(rendering, cls);
+    }
+
+    /** How many examples one panel shows; a class with more says how many it leaves out. */
+    private static final int MAX_EXAMPLES = 12;
+
+    /**
+     * Examples written by the class: for each concept of the set's file assigned to the class or a class under it, the
+     * book's own paragraphs, whole, in the order of the slots of the concept's class, each under its slot's question.
+     * A slot the book does not answer for that concept shows as a gap.
+     */
+    private void appendExamples(StringBuilder sb, String set, String cls, ConceptClasses classes) {
+        if (set.isEmpty()) return;
+        String text = results.get(set);
+        List<Assignment> mine = new ArrayList<>();
+        for (Assignment a : assignments(text)) {
+            if (classes.names().contains(a.cls()) && classes.chain(a.cls()).stream().anyMatch(k -> k.name().equals(cls))) mine.add(a);
+        }
+        if (mine.isEmpty()) return;
+        Map<String, String[]> books = new LinkedHashMap<>();   // short file name -> {path under works, text}
+        Matcher bf = BOOK_FILE.matcher(text);
+        while (bf.find()) {
+            String abs = bf.group(1).strip();
+            String rel = abs.startsWith(worksDir) ? abs.substring(worksDir.length()) : null;
+            String src = rel == null ? null : readWorks.apply(rel);
+            if (src != null) books.put(rel.substring(rel.lastIndexOf('/') + 1), new String[] {rel, src});
+        }
+        sb.append("<h3>Examples written by it</h3><p class=\"hint\">The book's own paragraphs, put in the order of the class's "
+                + "questions. A question the book does not answer for that concept shows as a gap.</p>");
+        int shown = 0;
+        for (Assignment a : mine) {
+            if (shown++ == MAX_EXAMPLES) {
+                sb.append("<p class=\"hint\">… and ").append(mine.size() - MAX_EXAMPLES).append(" more concept(s).</p>");
+                break;
+            }
+            sb.append("<div class=\"example\"><h4>").append(Html.esc(a.concept()));
+            if (!a.cls().equals(cls)) sb.append(" <span class=\"badge\">").append(classLink(set, a.cls())).append("</span>");
+            sb.append("</h4>");
+            for (ConceptClasses.Slot s : classes.whatCanBeSaid(a.cls())) {
+                sb.append("<div class=\"ex-slot\"><div class=\"ex-question\"><span class=\"name\">").append(Html.esc(s.name()))
+                  .append("</span> ").append(Html.esc(s.question())).append("</div>");
+                List<String> refs = a.slots().get(s.name());
+                if (refs == null) sb.append("<p class=\"hint\">(this book does not answer it for ").append(Html.esc(a.concept())).append(")</p>");
+                else for (String ref : refs) appendWhole(sb, books, ref);
+                sb.append("</div>");
+            }
+            List<String> aside = a.slots().get(":aside");
+            if (aside != null) {
+                sb.append("<div class=\"ex-slot\"><div class=\"ex-question\"><span class=\"name\">aside</span> said near it, not about it</div>");
+                for (String ref : aside) appendWhole(sb, books, ref);
+                sb.append("</div>");
+            }
+            sb.append("</div>");
+        }
+    }
+
+    /** One paragraph of a book, whole, with a link to it; a code block as code. */
+    private void appendWhole(StringBuilder sb, Map<String, String[]> books, String ref) {
+        String rule = ref.contains(" / ") ? ref.substring(ref.indexOf(" / ") + 3) : ref;
+        String[] book = ref.contains(" / ") ? books.get(ref.substring(0, ref.indexOf(" / "))) : null;
+        if (book == null) {
+            for (String[] b : books.values()) {
+                if (ConceptTree.paragraphText(b[1], rule) != null) {
+                    book = b;
+                    break;
+                }
+            }
+        }
+        String whole = book == null ? null : ConceptTree.paragraphText(book[1], rule);
+        sb.append("<div class=\"ex-para\">");
+        if (book != null) {
+            sb.append("<a href=\"#\" class=\"raw-rule class-source\" data-source=\"").append(Html.esc(book[0])).append("\" data-rule=\"")
+              .append(Html.esc(rule)).append("\" title=\"open in the source pane\">").append(Html.esc(rule)).append("</a> ");
+        }
+        if (whole == null) {
+            sb.append("<span class=\"hint\">").append(Html.esc(ref)).append(" (not found)</span>");
+        } else if (whole.startsWith("file:")) {
+            String code = readWorks.apply(book[0].substring(0, book[0].lastIndexOf('/') + 1) + whole.substring(5));
+            sb.append("<pre class=\"raw\">").append(Html.esc(code == null ? whole.substring(5) : code)).append("</pre>");
+        } else {
+            sb.append(Html.esc(whole));
+        }
+        sb.append("</div>");
     }
 
     private void appendParagraphs(StringBuilder sb, List<String[]> ps) {
@@ -173,7 +257,10 @@ public final class ClassPanel {
             String rel = abs.startsWith(worksDir) ? abs.substring(worksDir.length()) : null;
             String src = rel == null ? null : readWorks.apply(rel);
             if (src == null) continue;
+            String shortName = rel.substring(rel.lastIndexOf('/') + 1);
             for (ConceptTree.Unit u : ConceptTree.paragraphs(rel, src)) {
+                units.putIfAbsent(shortName + " / " + u.rule(), u);
+                fileOfRule.putIfAbsent(shortName + " / " + u.rule(), rel);
                 units.putIfAbsent(u.rule(), u);
                 fileOfRule.putIfAbsent(u.rule(), rel);
             }
@@ -184,9 +271,9 @@ public final class ClassPanel {
             for (Map.Entry<String, List<String>> e : a.slots().entrySet()) {
                 for (String ref : e.getValue()) {
                     String rule = ref.contains(" / ") ? ref.substring(ref.indexOf(" / ") + 3) : ref;
-                    ConceptTree.Unit u = units.get(rule);
+                    ConceptTree.Unit u = units.get(ref);
                     out.computeIfAbsent(e.getKey(), k -> new ArrayList<>())
-                       .add(new String[] {rule, fileOfRule.get(rule), u == null ? null : cut(u.nucleus(), 240), under});
+                       .add(new String[] {rule, fileOfRule.get(ref), u == null ? null : cut(u.nucleus(), 240), under});
                 }
             }
         }
