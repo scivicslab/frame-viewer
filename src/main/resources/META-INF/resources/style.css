@@ -46,3 +46,4 @@ select.raw-file-select { max-width: 100%; font-size: 0.95em; }
 .raw-path { color: #777; font-size: 0.85em; word-break: break-all; }
 a.raw-rule { color: #357; }
 .layout[data-tab=concrete] .tree { width: 18%; }
+pre.raw a.frame-link { color: #357; }

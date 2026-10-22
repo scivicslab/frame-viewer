@@ -91,6 +91,16 @@ public class ViewerResource {
         return new RawPanel(lib, new Sources(lib, this::readUnderWorks)).frame(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
     }
 
+    /** The right pane of the integrated-frame tab: the frame file as it is, with the frames it names linked. */
+    @GET
+    @jakarta.ws.rs.Path("raw-integrated")
+    @Produces(MediaType.TEXT_HTML)
+    public String rawIntegrated(@QueryParam("path") String path) {
+        if (path == null || path.isBlank()) return "<p class=\"hint\">No frame given.</p>";
+        Library lib = load();
+        return new RawPanel(lib, new Sources(lib, this::readUnderWorks)).integrated(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
+    }
+
     /** The right pane of the concrete-frame tab: one source file as it is, the paragraphs the frame names marked. */
     @GET
     @jakarta.ws.rs.Path("raw-source")

@@ -62,6 +62,17 @@ class RawPanelTest {
     }
 
     @Test
+    void theIntegratedFrameIsShownAsItIsWithTheFramesItNamesLinked() {
+        String text = ";;; integrates: subject/b/design.lisp (b, 23 Design)\n(defrule d -> :include \"explain.part.lisp\" :frame \"nope.lisp\")";
+        Library lib = new Library().addFrame("subject/b/design.lisp", FRAME)
+                .addFrame("explanation/explain.lisp", text).addFrame("explanation/explain.part.lisp", "(defrule p -> q)");
+        String html = new RawPanel(lib, new Sources(lib, Map.of(FILE, SOURCE)::get)).integrated("explanation/explain.lisp", text);
+        assertTrue(html.contains(";;; integrates: <a href=\"#\" class=\"frame-link\" data-frame=\"subject/b/design.lisp\">subject/b/design.lisp</a> (b, 23 Design)"), html);
+        assertTrue(html.contains(":include &quot;<a href=\"#\" class=\"frame-link\" data-frame=\"explanation/explain.part.lisp\">explain.part.lisp</a>&quot;"), html);
+        assertTrue(html.contains(":frame &quot;nope.lisp&quot;"), "a file that is no frame stays text");
+    }
+
+    @Test
     void anotherFramesParagraphsAreNotMarked() {
         assertTrue(!panel().source(FILE, SOURCE, "subject/b/other.lisp").contains("class=\"hit\""));
     }

@@ -56,7 +56,7 @@
     // A concrete frame opens as text in the left pane and its first source file beside it.
     var shownFrame = null, shownSource = null;
     function openFrame(path) {
-      if (path.indexOf('explanation/') === 0) { load('integrated', 'frame', { path: path }); return; }
+      if (path.indexOf('explanation/') === 0) { load('integrated', 'raw-integrated', { path: path }); return; }
       showTab('concrete');
       var $pane = pane('concrete').find('.frame-pane');
       $.get('raw-frame', { path: path }, function (html) {

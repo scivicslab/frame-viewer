@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
 public final class RawPanel {
 
     private static final Pattern WORD = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_/*.-]*");
+    private static final Pattern LISP_FILE = Pattern.compile("[A-Za-z0-9_./-]+\\.lisp");
     private static final Pattern KEY = Pattern.compile(";;; ([A-Za-z][A-Za-z0-9-]*)( \\([^)]*\\))?:");
     /** The header lines whose words name paragraphs of the source; other lines (subject, children) are prose. */
     private static final Set<String> NAMING = Set.of("made-from", "members", "elsewhere", "left-out");
@@ -63,6 +64,34 @@ public final class RawPanel {
             if (key != null && NAMING.contains(key)) linkRules(path, line, sb);
             else sb.append(esc(line));
             sb.append("\n");
+        }
+        sb.append("</pre>");
+        return sb.toString();
+    }
+
+    /**
+     * The integrated-frame tab's pane: the frames that went into it and its own sub-frames are links, wherever their
+     * file names appear in the text ({@code ;;; integrates:} lines, {@code :include}, {@code :frame}).
+     */
+    public String integrated(String path, String text) {
+        Library.Frame frame = library.frame(path);
+        if (frame == null || text == null) return "<p class=\"hint\">No frame " + esc(path) + ".</p>";
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div class=\"raw-head\"><b>").append(esc(path)).append("</b>");
+        if (!frame.isTop() && library.frame(frame.topPath()) != null) sb.append("<br>Part of: ").append(frameLink(frame.topPath()));
+        sb.append("</div><pre class=\"raw\">");
+        String dir = FramePanel.dirOf(path);
+        for (String line : text.split("\n", -1)) {
+            Matcher m = LISP_FILE.matcher(line);
+            int at = 0;
+            while (m.find()) {
+                String target = library.frame(m.group()) != null ? m.group() : library.frame(dir + m.group()) != null ? dir + m.group() : null;
+                if (target == null) continue;
+                sb.append(esc(line.substring(at, m.start())));
+                sb.append("<a href=\"#\" class=\"frame-link\" data-frame=\"").append(esc(target)).append("\">").append(esc(m.group())).append("</a>");
+                at = m.end();
+            }
+            sb.append(esc(line.substring(at))).append("\n");
         }
         sb.append("</pre>");
         return sb.toString();
