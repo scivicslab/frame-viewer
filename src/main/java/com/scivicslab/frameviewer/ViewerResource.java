@@ -117,7 +117,7 @@ public class ViewerResource {
         if (Files.isRegularFile(Path.of(db + ".mv.db"))) {
             try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
                 for (String b : store.books()) {
-                    books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b), store.sectionsWithRules(b), store.concepts(b)));
+                    books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b), store.sectionsWithRules(b), store.judgedConcepts(b)));
                 }
             } catch (java.sql.SQLException e) {
                 throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);

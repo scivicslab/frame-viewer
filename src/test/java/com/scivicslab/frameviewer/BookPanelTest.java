@@ -23,7 +23,10 @@ class BookPanelTest {
                 new BookSections.Section("4.1", "", List.of("Chap04/p001.md")),
                 new BookSections.Section("4.1.1", "A class is a template.\n\nIt runs on.", List.of("Chap04/p001.md", "Chap04/p006.md")));
         return new BookPanel(List.of(new BookPanel.Book("core", "/w/books/core", outline, sections, java.util.Set.of("4.1.1"),
-                java.util.Map.of("4.1.1", List.of("class", "instance", "encapsulation")))), "/w");
+                java.util.Map.of("4.1.1", List.of(
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("class", true, "in the title"),
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("instance", null, null),
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("Object class", false, "only in comment"))))), "/w");
     }
 
     @Test
@@ -34,7 +37,7 @@ class BookPanelTest {
                 java.util.Map.of("data-book", "core", "data-node", "4.1.1", "data-level", "subsection")), c.get(3));
         List<Library.TreeNode> s = panel().sectionsTree();
         assertEquals("core (3 sections)", s.get(0).text());
-        assertEquals("4.1.1 Classes  · 35 chars, 2 files · rst · 3 concepts", s.get(3).text());
+        assertEquals("4.1.1 Classes  · 35 chars, 2 files · rst · 3 concepts, 1 dropped", s.get(3).text());
         assertEquals("sb:core", s.get(3).parent());
     }
 
@@ -54,7 +57,8 @@ class BookPanelTest {
         assertTrue(html.contains("Chap04/p006.md <a href=\"#\" class=\"edit-link\" data-edit-works=\"books/core/Chap04/p006.md\""), html);
         assertTrue(html.contains("<pre class=\"raw md\">A class is a template.\n\nIt runs on.</pre>"), html);
         assertTrue(panel().section("core", "4.1", "md", null).contains("(no text of its own: its subsections hold it)"));
-        assertTrue(html.contains("<ul class=\"concepts\"><li>class</li><li>instance</li><li>encapsulation</li></ul>"), html);
+        assertTrue(html.contains("<ul class=\"concepts\"><li>class <span class=\"hint\">(in the title)</span></li><li>instance</li>"
+                + "<li class=\"dropped\">Object class <span class=\"hint\">(only in comment)</span></li></ul>"), html);
         assertTrue(panel().section("core", "4.1", "md", null).contains("(not listed yet)"));
     }
 

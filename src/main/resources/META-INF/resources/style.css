@@ -63,3 +63,4 @@ pre.raw .edges a.edge:hover { text-decoration: underline; }
 .wf-table { border-collapse: collapse; font-size: 0.88em; margin: 4px 0 10px; }
 .wf-table th, .wf-table td { border: 1px solid #e3e3e3; padding: 3px 6px; vertical-align: top; text-align: left; }
 .wf-table th { background: #f4f4f4; }
+ul.concepts li.dropped { text-decoration: line-through; color: #999; }

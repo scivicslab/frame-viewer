@@ -20,7 +20,7 @@ public final class BookPanel {
      * have a rule file, and the concepts each section explains.
      */
     public record Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections,
-            java.util.Set<String> withRules, Map<String, List<String>> concepts) {
+            java.util.Set<String> withRules, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept>> concepts) {
     }
 
     private final Map<String, Book> books = new LinkedHashMap<>();
@@ -59,7 +59,7 @@ public final class BookPanel {
                 String title = n == null ? "" : n.title();
                 String text = s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")
                         + (b.withRules().contains(s.number()) ? " · rst" : "")
-                        + (b.concepts().containsKey(s.number()) ? " · " + b.concepts().get(s.number()).size() + " concepts" : "");
+                        + (b.concepts().containsKey(s.number()) ? " · " + conceptCount(b.concepts().get(s.number())) : "");
                 out.add(new Library.TreeNode("s:" + b.name() + "|" + s.number(), root, text, Map.of("data-book", b.name(), "data-section", s.number())));
             }
         }
@@ -119,12 +119,18 @@ public final class BookPanel {
             sb.append("</div>");
         }
         sb.append("<h3>The concepts it explains</h3>");
-        List<String> concepts = b.concepts().get(number);
+        var concepts = b.concepts().get(number);
         if (concepts == null) sb.append("<p class=\"hint\">(not listed yet)</p>");
         else if (concepts.isEmpty()) sb.append("<p class=\"hint\">(none)</p>");
         else {
+            // step 4 listed them; step 5 kept or dropped each, by the role of the sentences that name it
             sb.append("<ul class=\"concepts\">");
-            for (String c : concepts) sb.append("<li>").append(Html.esc(c)).append("</li>");
+            for (var c : concepts) {
+                boolean dropped = Boolean.FALSE.equals(c.kept());
+                sb.append("<li").append(dropped ? " class=\"dropped\"" : "").append(">").append(Html.esc(c.concept()));
+                if (c.reason() != null) sb.append(" <span class=\"hint\">(").append(Html.esc(c.reason())).append(")</span>");
+                sb.append("</li>");
+            }
             sb.append("</ul>");
         }
         boolean rst = "rst".equals(view);
@@ -147,6 +153,12 @@ public final class BookPanel {
             }
         }
         return sb.toString();
+    }
+
+    /** "8 concepts", or "8 concepts, 1 dropped" once step 5 has judged them */
+    private static String conceptCount(List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept> cs) {
+        long dropped = cs.stream().filter(c -> Boolean.FALSE.equals(c.kept())).count();
+        return cs.size() + " concepts" + (dropped > 0 ? ", " + dropped + " dropped" : "");
     }
 
     private static Map<String, BookOutline.Node> nodes(Book b) {
