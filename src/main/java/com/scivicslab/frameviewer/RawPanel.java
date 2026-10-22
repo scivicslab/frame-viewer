@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 
 /**
  * Writes a concrete frame and one of its source files as they are on disk, for the two panes of the concrete-frame
- * tab. In the frame, each word of a header line that names a paragraph of a source file is a link that brings that
+ * tab. A frame is made from one or more source files; the source pane opens with a drop-down list of them. In the frame, each word of a header line that names a paragraph of a source file is a link that brings that
  * paragraph into view in the source pane. In the source, every {@code defrule} line starts with an anchor, and the
  * lines of the paragraphs the frame names (with their sub-rules, {@code p-plan/n} under {@code p-plan}) are marked.
  * Pure.
@@ -34,12 +34,15 @@ public final class RawPanel {
         this.sources = sources;
     }
 
-    /** The frame pane: links to its tag, top frame and integrated frames, its source files, then its text. */
+    /** The frame pane: links to its tag, top frame and integrated frames, then its text. The head names the first source file. */
     public String frame(String path, String text) {
         Library.Frame frame = library.frame(path);
         if (frame == null || text == null) return "<p class=\"hint\">No frame " + esc(path) + ".</p>";
         StringBuilder sb = new StringBuilder();
-        sb.append("<div class=\"raw-head\"><b>").append(esc(path)).append("</b>");
+        List<String> files = sources.filesOf(path);
+        sb.append("<div class=\"raw-head\"");
+        if (!files.isEmpty()) sb.append(" data-first-source=\"").append(esc(files.get(0))).append("\"");
+        sb.append("><b>").append(esc(path)).append("</b>");
         Library.Subject tag = library.subjectOf(frame);
         if (tag != null) sb.append("<br>Tag: ").append(tagLink(tag));
         if (!frame.isTop() && library.frame(frame.topPath()) != null) sb.append("<br>Part of: ").append(frameLink(frame.topPath()));
@@ -51,12 +54,7 @@ public final class RawPanel {
             sb.append("<br>Integrated into:");
             for (String p : into) sb.append(" ").append(frameLink(p));
         }
-        sb.append("<div class=\"raw-files\">");
-        for (String file : sources.filesOf(path)) {
-            sb.append("<a href=\"#\" class=\"raw-file\" data-source=\"").append(esc(file)).append("\">")
-                    .append(esc(file.substring(file.lastIndexOf('/') + 1))).append("</a> ");
-        }
-        sb.append("</div></div><pre class=\"raw\">");
+        sb.append("</div><pre class=\"raw\">");
         String key = null;
         for (String line : text.split("\n", -1)) {
             Matcher k = KEY.matcher(line);
@@ -84,7 +82,10 @@ public final class RawPanel {
         sb.append(esc(line.substring(at)));
     }
 
-    /** The source pane: the file's text, each defrule line anchored, the frame's paragraphs marked. */
+    /**
+     * The source pane: a drop-down list of the frame's source files with this one selected, then the file's text,
+     * each defrule line anchored, the frame's paragraphs marked.
+     */
     public String source(String file, String text, String framePath) {
         if (text == null || sources.file(file) == null) return "<p class=\"hint\">No source " + esc(file) + ".</p>";
         Set<String> named = new HashSet<>();
@@ -93,7 +94,15 @@ public final class RawPanel {
             for (Sources.Claim c : sources.claimsOf(file, r.name())) if (c.frame().equals(framePath)) named.add(r.name());
         }
         StringBuilder sb = new StringBuilder();
-        sb.append("<div class=\"raw-head\"><b>").append(esc(file)).append("</b></div><pre class=\"raw\">");
+        List<String> files = new ArrayList<>(sources.filesOf(framePath));
+        if (!files.contains(file)) files.add(0, file);
+        sb.append("<div class=\"raw-head source-head\"><select class=\"raw-file-select\" title=\"").append(esc(file)).append("\">");
+        for (String other : files) {
+            sb.append("<option value=\"").append(esc(other)).append("\"").append(other.equals(file) ? " selected" : "").append(">")
+                    .append(esc(other.substring(other.lastIndexOf('/') + 1))).append("</option>");
+        }
+        sb.append("</select> <span class=\"hint\">").append(files.size()).append(" source file").append(files.size() == 1 ? "" : "s")
+                .append(" of this frame</span><div class=\"raw-path\">").append(esc(file)).append("</div></div><pre class=\"raw\">");
         boolean hit = false;
         for (String line : text.split("\n", -1)) {
             Matcher m = DEFRULE.matcher(line);

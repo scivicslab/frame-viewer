@@ -64,8 +64,8 @@
         $pane.scrollTop(0);
         shownFrame = path;
         shownSource = null;
-        var $first = $pane.find('a.raw-file').first();
-        if ($first.length) { openRawSource($first.attr('data-source')); } else { pane('concrete').find('.source-pane').html('<p class="hint">This frame names no source file.</p>'); }
+        var first = $pane.find('.raw-head').attr('data-first-source');
+        if (first) { openRawSource(first); } else { pane('concrete').find('.source-pane').html('<p class="hint">This frame names no source file.</p>'); }
       });
     }
 
@@ -73,9 +73,8 @@
     function openRawSource(file, rule) {
       var $pane = pane('concrete').find('.source-pane');
       function reveal() {
-        pane('concrete').find('a.raw-file').removeClass('active').filter(function () { return $(this).attr('data-source') === file; }).addClass('active');
         var $a = rule ? $pane.find('[id="L-' + rule + '"]') : $();
-        if ($a.length) { $pane.scrollTop($a.position().top + $pane.scrollTop() - 40); } else if (!rule) { $pane.scrollTop(0); }
+        if ($a.length) { $pane.scrollTop($a.position().top + $pane.scrollTop() - $pane.find('.source-head').outerHeight() - 20); } else if (!rule) { $pane.scrollTop(0); }
       }
       if (shownSource === file) { reveal(); return; }
       $.get('raw-source', { file: file, frame: shownFrame }, function (html) { $pane.html(html); shownSource = file; reveal(); });
@@ -99,7 +98,7 @@
       });
     });
 
-    $(document).on('click', '.frame-pane a.raw-file', function (e) { e.preventDefault(); openRawSource($(this).attr('data-source')); });
+    $(document).on('change', '.source-pane select.raw-file-select', function () { openRawSource($(this).val()); });
     $(document).on('click', '.frame-pane a.raw-rule', function (e) { e.preventDefault(); openRawSource($(this).attr('data-source'), $(this).attr('data-rule')); });
 
     $('.tab').on('click', function (e) { e.preventDefault(); showTab($(this).attr('data-tab')); });
