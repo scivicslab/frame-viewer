@@ -71,9 +71,14 @@ public final class Sources {
      */
     public String saurusPageOf(String file) {
         if (!file.endsWith(".lisp")) return null;
-        String md = file.substring(0, file.length() - 5) + ".md";
+        String md = markdownBeside(file);
         String text = readWorks.apply(md);
         return text == null ? null : Html.saurusPage(md, text);
+    }
+
+    /** @return the path of the markdown file beside a source file: {@code x.md} for {@code x.lisp} */
+    static String markdownBeside(String file) {
+        return (file.endsWith(".lisp") ? file.substring(0, file.length() - 5) : file) + ".md";
     }
 
     /** @return the source files some frame was made from, by path under the works directory, sorted */

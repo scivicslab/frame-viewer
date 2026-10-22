@@ -61,8 +61,15 @@ class RawPanelTest {
         String html = panel.source(second, "(defrule ch23 -> p-more)", "subject/b/design.lisp");
         assertTrue(html.contains("<select class=\"raw-file-select\" title=\"" + second + "\"><option value=\"" + FILE + "\">b.lisp</option>"
                 + "<option value=\"" + second + "\" selected>c.lisp</option></select> <span class=\"hint\">2 source files of this frame</span>"), html);
-        assertTrue(html.contains("of this frame</span> <a href=\"#\" class=\"saurus-link\" data-saurus=\"doc_X/Book/Chap23/CPage_1/\">html-saurus</a>"
+        assertTrue(html.contains("<a href=\"#\" class=\"raw-view active\" data-view=\"lisp\">Lisp</a>"), html);
+        assertTrue(html.contains("</span> <a href=\"#\" class=\"saurus-link\" data-saurus=\"doc_X/Book/Chap23/CPage_1/\">html-saurus</a>"
                 + " <a href=\"#\" class=\"edit-link\" data-edit-works=\"" + second + "\""), html);
+
+        String md = panel.markdown(second, "---\nid: CPage_1\n---\n# <C>\n", "subject/b/design.lisp");
+        assertTrue(md.contains("<a href=\"#\" class=\"raw-view active\" data-view=\"md\">Markdown</a>"), md);
+        assertTrue(md.contains("<pre class=\"raw md\">---\nid: CPage_1\n---\n# &lt;C&gt;\n</pre>"), md);
+        assertTrue(md.contains("data-edit-works=\"doc_X/docs/Book/Chap23/c/c.md\""), "in the markdown view, edit opens the markdown file");
+        assertTrue(panel.markdown(second, null, "subject/b/design.lisp").contains("No markdown file beside this source file."));
     }
 
     @Test

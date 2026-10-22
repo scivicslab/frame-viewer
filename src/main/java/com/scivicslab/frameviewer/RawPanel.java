@@ -100,6 +100,44 @@ public final class RawPanel {
         return sb.toString();
     }
 
+    /**
+     * The source pane in its markdown view: the same head, then the markdown file beside the source file as it is.
+     *
+     * @param mdText the markdown text, or null when there is no markdown file beside the source file
+     */
+    public String markdown(String file, String mdText, String framePath) {
+        if (sources.file(file) == null) return "<p class=\"hint\">No source " + esc(file) + ".</p>";
+        StringBuilder sb = new StringBuilder();
+        head(file, framePath, true, sb);
+        if (mdText == null) sb.append("<p class=\"hint\">No markdown file beside this source file.</p>");
+        else sb.append("<pre class=\"raw md\">").append(esc(mdText)).append("</pre>");
+        return sb.toString();
+    }
+
+    /**
+     * The head of the source pane: a drop-down list of the frame's source files with this one selected, the switch
+     * between the Lisp and the markdown view, the html-saurus page, and the edit link of the file shown.
+     */
+    private void head(String file, String framePath, boolean markdown, StringBuilder sb) {
+        List<String> files = new ArrayList<>(sources.filesOf(framePath));
+        if (!files.contains(file)) files.add(0, file);
+        sb.append("<div class=\"raw-head source-head\"><select class=\"raw-file-select\" title=\"").append(esc(file)).append("\">");
+        for (String other : files) {
+            sb.append("<option value=\"").append(esc(other)).append("\"").append(other.equals(file) ? " selected" : "").append(">")
+                    .append(esc(other.substring(other.lastIndexOf('/') + 1))).append("</option>");
+        }
+        sb.append("</select> <span class=\"hint\">").append(files.size()).append(" source file").append(files.size() == 1 ? "" : "s")
+                .append(" of this frame</span>");
+        sb.append(" <span class=\"raw-views\"><a href=\"#\" class=\"raw-view").append(markdown ? "" : " active")
+                .append("\" data-view=\"lisp\">Lisp</a><a href=\"#\" class=\"raw-view").append(markdown ? " active" : "")
+                .append("\" data-view=\"md\">Markdown</a></span>");
+        String page = sources.saurusPageOf(file);
+        if (page != null) sb.append(" ").append(saurusLink(page, "html-saurus"));
+        String shown = markdown ? Sources.markdownBeside(file) : file;
+        sb.append(" ").append(editWorksLink(shown));
+        sb.append("<div class=\"raw-path\">").append(esc(shown)).append("</div></div>");
+    }
+
     private void linkRules(String path, String line, StringBuilder sb) {
         Matcher m = WORD.matcher(line);
         int at = 0;
@@ -126,19 +164,8 @@ public final class RawPanel {
             for (Sources.Claim c : sources.claimsOf(file, r.name())) if (c.frame().equals(framePath)) named.add(r.name());
         }
         StringBuilder sb = new StringBuilder();
-        List<String> files = new ArrayList<>(sources.filesOf(framePath));
-        if (!files.contains(file)) files.add(0, file);
-        sb.append("<div class=\"raw-head source-head\"><select class=\"raw-file-select\" title=\"").append(esc(file)).append("\">");
-        for (String other : files) {
-            sb.append("<option value=\"").append(esc(other)).append("\"").append(other.equals(file) ? " selected" : "").append(">")
-                    .append(esc(other.substring(other.lastIndexOf('/') + 1))).append("</option>");
-        }
-        sb.append("</select> <span class=\"hint\">").append(files.size()).append(" source file").append(files.size() == 1 ? "" : "s")
-                .append(" of this frame</span>");
-        String page = sources.saurusPageOf(file);
-        if (page != null) sb.append(" ").append(saurusLink(page, "html-saurus"));
-        sb.append(" ").append(editWorksLink(file));
-        sb.append("<div class=\"raw-path\">").append(esc(file)).append("</div></div><pre class=\"raw\">");
+        head(file, framePath, false, sb);
+        sb.append("<pre class=\"raw\">");
         boolean hit = false;
         for (String line : text.split("\n", -1)) {
             Matcher m = DEFRULE.matcher(line);

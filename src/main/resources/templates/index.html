@@ -52,7 +52,7 @@
     }
 
     // A concrete frame opens as text in the left pane and its first source file beside it.
-    var shownFrame = null, shownSource = null;
+    var shownFrame = null, shownSource = null, sourceView = 'lisp', shownView = null;
     function openFrame(path) {
       if (path.indexOf('explanation/') === 0) { load('integrated', 'raw-integrated', { path: path }); return; }
       showTab('concrete');
@@ -67,15 +67,19 @@
       });
     }
 
-    // Shows a source file in the right pane, then brings a paragraph into view when one is named.
+    // Shows a source file in the right pane, in the view last chosen (Lisp or Markdown), then brings a paragraph
+    // into view when one is named. A paragraph is found in the Lisp view, so naming one switches to it.
     function openRawSource(file, rule) {
+      if (rule) { sourceView = 'lisp'; }
       var $pane = pane('concrete').find('.source-pane');
       function reveal() {
         var $a = rule ? $pane.find('[id="L-' + rule + '"]') : $();
         if ($a.length) { $pane.scrollTop($a.position().top + $pane.scrollTop() - $pane.find('.source-head').outerHeight() - 20); } else if (!rule) { $pane.scrollTop(0); }
       }
-      if (shownSource === file) { reveal(); return; }
-      $.get('raw-source', { file: file, frame: shownFrame }, function (html) { $pane.html(html); shownSource = file; reveal(); });
+      if (shownSource === file && shownView === sourceView) { reveal(); return; }
+      $.get('raw-source', { file: file, frame: shownFrame, view: sourceView }, function (html) {
+        $pane.html(html); shownSource = file; shownView = sourceView; reveal();
+      });
     }
     function openTag(tag) { load('tags', 'tag', { tag: tag }); }
 
@@ -110,6 +114,11 @@
       var origin = location.protocol + '//' + location.hostname + ':8080';
       var payload = JSON.stringify([['openFile', 'vscode-remote://' + location.hostname + ':8080' + abs + ':1'], ['gotoLineMode', 'true']]);
       window.open(origin + '/?folder=' + encodeURIComponent(works) + '&payload=' + encodeURIComponent(payload), '_blank');
+    });
+    $(document).on('click', '.source-pane a.raw-view', function (e) {
+      e.preventDefault();
+      sourceView = $(this).attr('data-view');
+      openRawSource(shownSource);
     });
     $(document).on('change', '.source-pane select.raw-file-select', function () { openRawSource($(this).val()); });
     $(document).on('click', '.frame-pane a.raw-rule', function (e) { e.preventDefault(); openRawSource($(this).attr('data-source'), $(this).attr('data-rule')); });

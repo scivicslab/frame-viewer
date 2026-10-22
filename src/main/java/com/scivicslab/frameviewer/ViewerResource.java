@@ -84,14 +84,20 @@ public class ViewerResource {
         return new RawPanel(lib, new Sources(lib, this::readUnderWorks)).integrated(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
     }
 
-    /** The right pane of the concrete-frame tab: one source file as it is, the paragraphs the frame names marked. */
+    /**
+     * The right pane of the concrete-frame tab: one source file as it is, the paragraphs the frame names marked; or,
+     * with {@code view=md}, the markdown file beside it as it is.
+     */
     @GET
     @jakarta.ws.rs.Path("raw-source")
     @Produces(MediaType.TEXT_HTML)
-    public String rawSource(@QueryParam("file") String file, @QueryParam("frame") String frame) {
+    public String rawSource(@QueryParam("file") String file, @QueryParam("frame") String frame, @QueryParam("view") String view) {
         if (file == null || file.isBlank()) return "<p class=\"hint\">No source given.</p>";
         Library lib = load();
-        return new RawPanel(lib, new Sources(lib, this::readUnderWorks)).source(file, readUnderWorks(file), frame == null ? "" : frame);
+        RawPanel panel = new RawPanel(lib, new Sources(lib, this::readUnderWorks));
+        String f = frame == null ? "" : frame;
+        if ("md".equals(view)) return panel.markdown(file, readUnderWorks(Sources.markdownBeside(file)), f);
+        return panel.source(file, readUnderWorks(file), f);
     }
 
     /** Reads {@code subjects/*.lisp} and every {@code .lisp} under {@code frames/}. */
