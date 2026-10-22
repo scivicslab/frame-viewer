@@ -28,8 +28,7 @@ class RawPanelTest {
             """;
 
     private static RawPanel panel() {
-        Library lib = new Library().addSubjects("(defsubjects b :book \"/x\")\n(subject \"23\" \"Design\")")
-                .addFrame("subject/b/design.lisp", FRAME);
+        Library lib = new Library().addFrame("subject/b/design.lisp", FRAME);
         return new RawPanel(lib, new Sources(lib, Map.of(FILE, SOURCE)::get));
     }
 
@@ -39,7 +38,6 @@ class RawPanelTest {
         assertTrue(html.contains(";;; members: <a href=\"#\" class=\"raw-rule\" data-source=\"" + FILE + "\" data-rule=\"p-plan\">p-plan</a> (the &lt;plan&gt;)"), html);
         assertTrue(html.contains("(defrule d -&gt; :instruction &quot;say \\&quot;what\\&quot;&quot;)"), html);
         assertTrue(html.contains("<div class=\"raw-head\" data-first-source=\"" + FILE + "\">"), html);
-        assertTrue(html.contains("class=\"tag-link\" data-tag=\"b|23\""), html);
         assertTrue(html.contains("<b>subject/b/design.lisp</b> <a href=\"#\" class=\"edit-link\" data-edit-frame=\"subject/b/design.lisp\""), html);
         assertTrue(html.contains(";;; subject: b 23 Design: the p-aside of it"), "the subject line is prose, not linked");
     }

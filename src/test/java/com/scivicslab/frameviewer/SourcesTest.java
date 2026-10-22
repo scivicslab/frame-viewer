@@ -8,7 +8,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-/** Pure tests of the source index and the tag panel: which frame took which paragraph. */
+/** Pure tests of the source index: which frame took which paragraph. */
 class SourcesTest {
 
     private static final String DIR = "doc_X/docs/Book/Chap23/book p391-400";
@@ -17,7 +17,6 @@ class SourcesTest {
 
     private static Library library() {
         return new Library()
-                .addSubjects("(defsubjects b :book \"/x\")\n(subject \"23\" \"Design\")\n(subject \"24\" \"Code\")")
                 .addFrame("subject/b/design.lisp", """
                         ;;; subject: b 23 Design
                         ;;; made-from: %s / ch23
@@ -95,18 +94,5 @@ class SourcesTest {
         Library lib = library();
         Sources s = new Sources(lib, works::get);
         assertEquals("doc_X/Book/Chap23/book p391-400/", s.saurusPageOf(FILE));
-        String html = new TagPanel(lib, s).render("b|23");
-        assertTrue(html.contains("<li><a href=\"#\" class=\"saurus-link\" data-saurus=\"doc_X/Book/Chap23/book p391-400/\">" + FILE + "</a> <a href=\"#\" class=\"edit-link\""), html);
-    }
-
-    @Test
-    void theTagPanelReachesTheConcreteFrameTheIntegratedFrameAndTheSource() {
-        Library lib = library();
-        String html = new TagPanel(lib, new Sources(lib, WORKS::get)).render("b|23");
-        assertTrue(html.contains("data-frame=\"subject/b/design.lisp\""), html);
-        assertTrue(html.contains("<h3>Integrated into</h3><ul><li><a href=\"#\" class=\"frame-link\" data-frame=\"explanation/explain-program.lisp\">"), html);
-        assertTrue(html.contains("<li>" + FILE + " <a href=\"#\" class=\"edit-link\" data-edit-works=\"" + FILE + "\""), "no markdown beside the source: the path, not a link, and an edit link");
-        assertTrue(html.contains("data-frame=\"subject/b/design.lisp\">subject/b/design.lisp</a> <a href=\"#\" class=\"edit-link\" data-edit-frame=\"subject/b/design.lisp\""), html);
-        assertTrue(new TagPanel(lib, new Sources(lib, WORKS::get)).render("b|24").contains("No frame names this tag."));
     }
 }

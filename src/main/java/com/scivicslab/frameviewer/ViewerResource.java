@@ -51,30 +51,20 @@ public class ViewerResource {
                 .data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString());
     }
 
-    /** @param tab {@code tags}, {@code concrete} or {@code integrated} */
+    /** @param tab the tab whose tree is wanted, e.g. {@code workflows}, {@code contents}, {@code concrete} */
     @GET
     @jakarta.ws.rs.Path("tree")
     @Produces(MediaType.APPLICATION_JSON)
     public List<Library.TreeNode> tree(@QueryParam("tab") String tab) {
         Library lib = load();
-        return switch (tab == null ? "tags" : tab) {
+        return switch (tab == null ? "workflows" : tab) {
             case "concrete" -> lib.frameTree(false);
             case "integrated" -> lib.frameTree(true);
             case "classes" -> classPanel().tree();
-            case "workflows" -> workflowPanel().tree();
             case "contents" -> bookPanel().contentsTree();
             case "sections" -> bookPanel().sectionsTree();
-            default -> lib.tagTree();
+            default -> workflowPanel().tree();
         };
-    }
-
-    @GET
-    @jakarta.ws.rs.Path("tag")
-    @Produces(MediaType.TEXT_HTML)
-    public String tag(@QueryParam("tag") String tag) {
-        if (tag == null || tag.isBlank()) return "<p class=\"hint\">No tag given.</p>";
-        Library lib = load();
-        return new TagPanel(lib, new Sources(lib, this::readUnderWorks)).render(tag);
     }
 
     /** The Contents tab's panel: one node of a book's table of contents. */
@@ -219,11 +209,10 @@ public class ViewerResource {
         return new Links(texts);
     }
 
-    /** Reads {@code subjects/*.lisp} and every {@code .lisp} under {@code frames/}. */
+    /** Reads every {@code .lisp} under {@code frames/}. */
     Library load() {
         Library lib = new Library();
         Path root = Path.of(rstOnLispDir);
-        for (Path p : lisp(root.resolve("subjects"))) lib.addSubjects(read(p));
         Path frames = root.resolve("frames");
         for (Path p : lisp(frames)) lib.addFrame(frames.relativize(p).toString().replace('\\', '/'), read(p));
         return lib;

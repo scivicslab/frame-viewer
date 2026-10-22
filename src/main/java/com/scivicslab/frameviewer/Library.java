@@ -6,14 +6,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The frame library as the viewer sees it: the books' subject-tag trees and the frames, linked by the
- * {@code ;;; subject:} line of each frame. Pure: built from file texts handed to it, no I/O.
+ * The frame library as the viewer sees it: the frames, and the integrated frames that name them. Pure: built from
+ * file texts handed to it, no I/O.
  */
 public final class Library {
-
-    /** One node of a book's subject-tag tree. The parent is decided by the number: {@code 1.4}'s parent is {@code 1}. */
-    public record Subject(String book, String number, String title, String parent) {
-    }
 
     /** One frame file, by its path under {@code frames/}. A sub-frame ({@code parent.part.lisp}) is not a top frame. */
     public record Frame(String path, RuleFile file) {
@@ -27,15 +23,6 @@ public final class Library {
         /** @return true for frames under {@code explanation/} */
         public boolean isIntegrated() {
             return path.startsWith("explanation/");
-        }
-
-        /** @return the book and the number of the {@code ;;; subject:} line, or null when the line does not name one */
-        public String[] subject() {
-            List<String> s = file.header("subject");
-            if (s.isEmpty()) return null;
-            String[] w = s.get(0).split("\\s+");
-            if (w.length < 2) return null;
-            return new String[] {w[0], w[1]};
         }
 
         /** @return the top frame this one belongs to: {@code design.lisp} for {@code design.use-case.lisp} */
@@ -57,49 +44,12 @@ public final class Library {
         }
     }
 
-    private final Map<String, List<Subject>> books = new LinkedHashMap<>();
     private final Map<String, Frame> frames = new LinkedHashMap<>();
-
-    /** Adds one {@code subjects/<book>.lisp} file. */
-    public Library addSubjects(String text) {
-        RuleFile f = RuleFile.parse(text);
-        String book = null;
-        for (RuleFile.Form form : f.forms()) {
-            if (form.head().equals("defsubjects") && !form.tokens().isEmpty()) book = form.tokens().get(0).text();
-        }
-        if (book == null) return this;
-        List<Subject> nodes = new ArrayList<>();
-        java.util.Set<String> numbers = new java.util.HashSet<>();
-        for (RuleFile.Form form : f.forms()) {
-            if (!form.head().equals("subject") || form.tokens().size() < 2) continue;
-            String number = form.tokens().get(0).text();
-            if (!numbers.add(number)) continue;
-            nodes.add(new Subject(book, number, form.tokens().get(1).text(), null));
-        }
-        List<Subject> linked = new ArrayList<>();
-        for (Subject s : nodes) linked.add(new Subject(book, s.number(), s.title(), parentOf(s.number(), numbers)));
-        books.put(book, linked);
-        return this;
-    }
 
     /** Adds one frame file, by its path under {@code frames/}. */
     public Library addFrame(String path, String text) {
         frames.put(path, new Frame(path, RuleFile.parse(text)));
         return this;
-    }
-
-    private static String parentOf(String number, java.util.Set<String> numbers) {
-        String n = number;
-        // 1.4 is under 1, and 1/Sec4 (a section numbered by its chapter only) is under 1
-        while (n.contains(".") || n.contains("/")) {
-            n = n.substring(0, Math.max(n.lastIndexOf('.'), n.lastIndexOf('/')));
-            if (numbers.contains(n)) return n;
-        }
-        return null;
-    }
-
-    public Map<String, List<Subject>> books() {
-        return books;
     }
 
     public Frame frame(String path) {
@@ -108,19 +58,6 @@ public final class Library {
 
     public List<Frame> frames() {
         return List.copyOf(frames.values());
-    }
-
-    /**
-     * @return the frames whose {@code ;;; subject:} line names this book and number. A child frame put in with
-     *         {@code :include} names its own node (23.4 for the deployment of chapter 23), so it is found too.
-     */
-    public List<Frame> framesOf(String book, String number) {
-        List<Frame> out = new ArrayList<>();
-        for (Frame f : frames.values()) {
-            String[] s = f.subject();
-            if (s != null && s[0].equals(book) && s[1].equals(number)) out.add(f);
-        }
-        return out;
     }
 
     /** @return the integrated frames that name this frame in {@code ;;; integrates:} */
@@ -139,38 +76,8 @@ public final class Library {
         return out;
     }
 
-    /** @return the subject-tag node a frame names, or null */
-    public Subject subjectOf(Frame f) {
-        String[] s = f.subject();
-        if (s == null || !books.containsKey(s[0])) return null;
-        for (Subject n : books.get(s[0])) if (n.number().equals(s[1])) return n;
-        return null;
-    }
-
     /** One node of the jstree data: flat form, the parent named by id ({@code #} for a root). */
     public record TreeNode(String id, String parent, String text, Map<String, String> li_attr) {
-    }
-
-    /** The tag tab: one root per book with its subject-tag tree; the nodes that have a frame are marked. */
-    public List<TreeNode> tagTree() {
-        List<TreeNode> out = new ArrayList<>();
-        for (Map.Entry<String, List<Subject>> e : books.entrySet()) {
-            String book = e.getKey();
-            String root = "book:" + book;
-            out.add(new TreeNode(root, "#", book, Map.of()));
-            for (Subject s : e.getValue()) {
-                String id = "s:" + book + ":" + s.number();
-                String parent = s.parent() == null ? root : "s:" + book + ":" + s.parent();
-                String text = s.number() + " " + s.title();
-                Map<String, String> attr = Map.of("data-tag", book + "|" + s.number());
-                if (!framesOf(book, s.number()).isEmpty()) {
-                    text = "★ " + text;
-                    attr = Map.of("data-tag", book + "|" + s.number(), "class", "has-frame");
-                }
-                out.add(new TreeNode(id, parent, text, attr));
-            }
-        }
-        return out;
     }
 
     /**

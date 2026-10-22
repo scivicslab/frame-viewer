@@ -6,7 +6,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The pieces of HTML every panel writes: escaping, and the links to a frame, to a subject tag and to the html-saurus
+ * The pieces of HTML every panel writes: escaping, and the links to a frame and to the html-saurus
  * page of a source file. Pure.
  */
 public final class Html {
@@ -29,11 +29,6 @@ public final class Html {
 
     static String frameLink(String path) {
         return "<a href=\"#\" class=\"frame-link\" data-frame=\"" + esc(path) + "\">" + esc(path) + "</a>";
-    }
-
-    static String tagLink(Library.Subject s) {
-        return "<a href=\"#\" class=\"tag-link\" data-tag=\"" + esc(s.book() + "|" + s.number()) + "\">"
-                + esc(s.book() + " " + s.number() + " " + s.title()) + "</a>";
     }
 
     /**

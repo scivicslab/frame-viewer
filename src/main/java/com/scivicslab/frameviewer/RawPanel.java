@@ -5,7 +5,6 @@ import static com.scivicslab.frameviewer.Html.editWorksLink;
 import static com.scivicslab.frameviewer.Html.esc;
 import static com.scivicslab.frameviewer.Html.frameLink;
 import static com.scivicslab.frameviewer.Html.saurusLink;
-import static com.scivicslab.frameviewer.Html.tagLink;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -45,7 +44,7 @@ public final class RawPanel {
         this.links = links;
     }
 
-    /** The frame pane: links to its tag, top frame and integrated frames, then its text. The head names the first source file. */
+    /** The frame pane: links to its top frame and integrated frames, then its text. The head names the first source file. */
     public String frame(String path, String text) {
         Library.Frame frame = library.frame(path);
         if (frame == null || text == null) return "<p class=\"hint\">No frame " + esc(path) + ".</p>";
@@ -54,8 +53,6 @@ public final class RawPanel {
         sb.append("<div class=\"raw-head\"");
         if (!files.isEmpty()) sb.append(" data-first-source=\"").append(esc(files.get(0))).append("\"");
         sb.append("><b>").append(esc(path)).append("</b> ").append(editFrameLink(path));
-        Library.Subject tag = library.subjectOf(frame);
-        if (tag != null) sb.append("<br>Tag: ").append(tagLink(tag));
         if (!frame.isTop() && library.frame(frame.topPath()) != null) sb.append("<br>Part of: ").append(frameLink(frame.topPath()));
         List<String> into = new ArrayList<>();
         for (String p : List.of(path, frame.topPath())) {
