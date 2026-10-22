@@ -47,3 +47,4 @@ select.raw-file-select { max-width: 100%; font-size: 0.95em; }
 a.raw-rule { color: #357; }
 .layout[data-tab=concrete] .tree { width: 18%; }
 pre.raw a.frame-link { color: #357; }
+a.edit-link { font-size: 0.8em; margin-left: 4px; color: #a50; }

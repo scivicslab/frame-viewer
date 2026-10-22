@@ -1,5 +1,7 @@
 package com.scivicslab.frameviewer;
 
+import static com.scivicslab.frameviewer.Html.editFrameLink;
+import static com.scivicslab.frameviewer.Html.editWorksLink;
 import static com.scivicslab.frameviewer.Html.esc;
 import static com.scivicslab.frameviewer.Html.frameLink;
 import static com.scivicslab.frameviewer.Html.saurusLink;
@@ -52,7 +54,7 @@ public final class TagPanel {
             sb.append("<h3>Source</h3><ul>");
             for (String file : files) {
                 String page = sources.saurusPageOf(file);
-                sb.append("<li>").append(page == null ? esc(file) : saurusLink(page, file)).append("</li>");
+                sb.append("<li>").append(page == null ? esc(file) : saurusLink(page, file)).append(" ").append(editWorksLink(file)).append("</li>");
             }
             sb.append("</ul>");
         }
@@ -63,7 +65,7 @@ public final class TagPanel {
     private static void list(String label, List<String> paths, StringBuilder sb) {
         if (paths.isEmpty()) return;
         sb.append("<h3>").append(label).append("</h3><ul>");
-        for (String p : paths) sb.append("<li>").append(frameLink(p)).append("</li>");
+        for (String p : paths) sb.append("<li>").append(frameLink(p)).append(" ").append(editFrameLink(p)).append("</li>");
         sb.append("</ul>");
     }
 }

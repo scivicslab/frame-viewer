@@ -96,7 +96,7 @@ class SourcesTest {
         Sources s = new Sources(lib, works::get);
         assertEquals("doc_X/Book/Chap23/book p391-400/", s.saurusPageOf(FILE));
         String html = new TagPanel(lib, s).render("b|23");
-        assertTrue(html.contains("<li><a href=\"#\" class=\"saurus-link\" data-saurus=\"doc_X/Book/Chap23/book p391-400/\">" + FILE + "</a></li>"), html);
+        assertTrue(html.contains("<li><a href=\"#\" class=\"saurus-link\" data-saurus=\"doc_X/Book/Chap23/book p391-400/\">" + FILE + "</a> <a href=\"#\" class=\"edit-link\""), html);
     }
 
     @Test
@@ -105,7 +105,8 @@ class SourcesTest {
         String html = new TagPanel(lib, new Sources(lib, WORKS::get)).render("b|23");
         assertTrue(html.contains("data-frame=\"subject/b/design.lisp\""), html);
         assertTrue(html.contains("<h3>Integrated into</h3><ul><li><a href=\"#\" class=\"frame-link\" data-frame=\"explanation/explain-program.lisp\">"), html);
-        assertTrue(html.contains("<li>" + FILE + "</li>"), "no markdown beside the source: the path, not a link");
+        assertTrue(html.contains("<li>" + FILE + " <a href=\"#\" class=\"edit-link\" data-edit-works=\"" + FILE + "\""), "no markdown beside the source: the path, not a link, and an edit link");
+        assertTrue(html.contains("data-frame=\"subject/b/design.lisp\">subject/b/design.lisp</a> <a href=\"#\" class=\"edit-link\" data-edit-frame=\"subject/b/design.lisp\""), html);
         assertTrue(new TagPanel(lib, new Sources(lib, WORKS::get)).render("b|24").contains("No frame names this tag."));
     }
 }

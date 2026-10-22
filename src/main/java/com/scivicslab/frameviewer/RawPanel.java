@@ -1,5 +1,7 @@
 package com.scivicslab.frameviewer;
 
+import static com.scivicslab.frameviewer.Html.editFrameLink;
+import static com.scivicslab.frameviewer.Html.editWorksLink;
 import static com.scivicslab.frameviewer.Html.esc;
 import static com.scivicslab.frameviewer.Html.frameLink;
 import static com.scivicslab.frameviewer.Html.saurusLink;
@@ -44,7 +46,7 @@ public final class RawPanel {
         List<String> files = sources.filesOf(path);
         sb.append("<div class=\"raw-head\"");
         if (!files.isEmpty()) sb.append(" data-first-source=\"").append(esc(files.get(0))).append("\"");
-        sb.append("><b>").append(esc(path)).append("</b>");
+        sb.append("><b>").append(esc(path)).append("</b> ").append(editFrameLink(path));
         Library.Subject tag = library.subjectOf(frame);
         if (tag != null) sb.append("<br>Tag: ").append(tagLink(tag));
         if (!frame.isTop() && library.frame(frame.topPath()) != null) sb.append("<br>Part of: ").append(frameLink(frame.topPath()));
@@ -78,7 +80,7 @@ public final class RawPanel {
         Library.Frame frame = library.frame(path);
         if (frame == null || text == null) return "<p class=\"hint\">No frame " + esc(path) + ".</p>";
         StringBuilder sb = new StringBuilder();
-        sb.append("<div class=\"raw-head\"><b>").append(esc(path)).append("</b>");
+        sb.append("<div class=\"raw-head\"><b>").append(esc(path)).append("</b> ").append(editFrameLink(path));
         if (!frame.isTop() && library.frame(frame.topPath()) != null) sb.append("<br>Part of: ").append(frameLink(frame.topPath()));
         sb.append("</div><pre class=\"raw\">");
         String dir = Html.dirOf(path);
@@ -135,6 +137,7 @@ public final class RawPanel {
                 .append(" of this frame</span>");
         String page = sources.saurusPageOf(file);
         if (page != null) sb.append(" ").append(saurusLink(page, "html-saurus"));
+        sb.append(" ").append(editWorksLink(file));
         sb.append("<div class=\"raw-path\">").append(esc(file)).append("</div></div><pre class=\"raw\">");
         boolean hit = false;
         for (String line : text.split("\n", -1)) {

@@ -37,6 +37,18 @@ public final class Html {
     }
 
     /**
+     * A link the page turns into a code-server URL that opens one file for editing: a frame, by its path under
+     * {@code frames/}, or a source file, by its path under the works directory. The page knows both directories.
+     */
+    static String editFrameLink(String framePath) {
+        return "<a href=\"#\" class=\"edit-link\" data-edit-frame=\"" + esc(framePath) + "\" title=\"edit in code-server\">edit</a>";
+    }
+
+    static String editWorksLink(String worksPath) {
+        return "<a href=\"#\" class=\"edit-link\" data-edit-works=\"" + esc(worksPath) + "\" title=\"edit in code-server\">edit</a>";
+    }
+
+    /**
      * A link the page turns into {@code http://<its own host>:<port>/#/<page>}: the html-saurus portal, opened on the
      * page of one source file. html-saurus is reached on its own port, not through the AI workspace's path prefix.
      */

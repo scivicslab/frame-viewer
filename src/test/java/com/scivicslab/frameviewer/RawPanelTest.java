@@ -39,6 +39,7 @@ class RawPanelTest {
         assertTrue(html.contains("(defrule d -&gt; :instruction &quot;say \\&quot;what\\&quot;&quot;)"), html);
         assertTrue(html.contains("<div class=\"raw-head\" data-first-source=\"" + FILE + "\">"), html);
         assertTrue(html.contains("class=\"tag-link\" data-tag=\"b|23\""), html);
+        assertTrue(html.contains("<b>subject/b/design.lisp</b> <a href=\"#\" class=\"edit-link\" data-edit-frame=\"subject/b/design.lisp\""), html);
         assertTrue(html.contains(";;; subject: b 23 Design: the p-aside of it"), "the subject line is prose, not linked");
     }
 
@@ -60,7 +61,8 @@ class RawPanelTest {
         String html = panel.source(second, "(defrule ch23 -> p-more)", "subject/b/design.lisp");
         assertTrue(html.contains("<select class=\"raw-file-select\" title=\"" + second + "\"><option value=\"" + FILE + "\">b.lisp</option>"
                 + "<option value=\"" + second + "\" selected>c.lisp</option></select> <span class=\"hint\">2 source files of this frame</span>"), html);
-        assertTrue(html.contains("of this frame</span> <a href=\"#\" class=\"saurus-link\" data-saurus=\"doc_X/Book/Chap23/CPage_1/\">html-saurus</a>"), html);
+        assertTrue(html.contains("of this frame</span> <a href=\"#\" class=\"saurus-link\" data-saurus=\"doc_X/Book/Chap23/CPage_1/\">html-saurus</a>"
+                + " <a href=\"#\" class=\"edit-link\" data-edit-works=\"" + second + "\""), html);
     }
 
     @Test
@@ -72,6 +74,7 @@ class RawPanelTest {
         assertTrue(html.contains(";;; integrates: <a href=\"#\" class=\"frame-link\" data-frame=\"subject/b/design.lisp\">subject/b/design.lisp</a> (b, 23 Design)"), html);
         assertTrue(html.contains(":include &quot;<a href=\"#\" class=\"frame-link\" data-frame=\"explanation/explain.part.lisp\">explain.part.lisp</a>&quot;"), html);
         assertTrue(html.contains(":frame &quot;nope.lisp&quot;"), "a file that is no frame stays text");
+        assertTrue(html.contains("<b>explanation/explain.lisp</b> <a href=\"#\" class=\"edit-link\" data-edit-frame=\"explanation/explain.lisp\""), html);
     }
 
     @Test

@@ -37,7 +37,9 @@ public class ViewerResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance page() {
-        return index.instance();
+        // the page builds code-server links from absolute paths, so it is told where frames and sources live
+        return index.data("framesDir", Path.of(rstOnLispDir, "frames").toAbsolutePath().normalize().toString())
+                .data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString());
     }
 
     /** @param tab {@code tags}, {@code concrete} or {@code integrated} */
