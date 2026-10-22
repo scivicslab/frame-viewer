@@ -96,4 +96,26 @@ class ClassPanelTest {
         String html = panel().render("assignments/loop.lisp", "message");
         assertTrue(html.contains("<span class=\"badge\"><a href=\"#\" class=\"class-link\" data-set=\"assignments/loop.lisp\" data-class=\"result-message\">result-message</a></span> <a href=\"#\" class=\"raw-rule class-source\" data-source=\"doc_Y/loop/loop.lisp\" data-rule=\"p-guard\">"), html);
     }
+
+    @Test
+    void aFileThatStandsAloneIsReadWithoutTheClassesAndListsItsValues() {
+        String smaller = """
+                ;;; The concept classes of x, made smaller.
+                ;;; standalone
+                (in-package :concepts)
+                (defclass message ()
+                  ((carried-values :documentation "What values it carries"))
+                  (:documentation "Something the agent loop hands to the program"))
+                (instance "result message" message)
+                (assign "ResultMessage" message
+                  (carried-values "p-result"))
+                """;
+        ClassPanel p = new ClassPanel(Map.of("concepts/messages.lisp", MESSAGES), Map.of("assignments/loop.smaller.lisp", smaller), "/w",
+                rel -> null, "rst-on-lisp");
+        List<Library.TreeNode> t = p.tree();
+        assertTrue(t.stream().anyMatch(n -> n.id().equals("set:assignments/loop.smaller.lisp") && n.text().endsWith("(made smaller)")), t.toString());
+        assertTrue(t.stream().noneMatch(n -> n.id().equals("c:assignments/loop.smaller.lisp|result-message")), "the classes of concepts/ are not read: " + t);
+        String html = p.render("assignments/loop.smaller.lisp", "message");
+        assertTrue(html.contains("<h3>Values of it</h3><div class=\"child\">result message</div>"), html);
+    }
 }

@@ -60,7 +60,7 @@ public final class ClassPanel {
     public List<Library.TreeNode> tree() {
         List<Library.TreeNode> out = new ArrayList<>();
         addSet(out, "", "concepts/");
-        for (String r : results.keySet()) addSet(out, r, r + " (step 3)");
+        for (String r : results.keySet()) addSet(out, r, r + (standalone(r) ? " (made smaller)" : " (step 3)"));
         return out;
     }
 
@@ -100,6 +100,12 @@ public final class ClassPanel {
             if (chain.size() == 1) sb.append("<span class=\"hint\">(a root class)</span>");
             for (int i = 1; i < chain.size(); i++) sb.append(i > 1 ? " → " : "").append(classLink(set, chain.get(i).name()));
             sb.append("</div>");
+            List<String> values = c.instances().entrySet().stream().filter(e -> e.getValue().equals(cls)).map(Map.Entry::getKey).toList();
+            if (!values.isEmpty()) {
+                sb.append("<h3>Values of it</h3><div class=\"child\">");
+                for (int i = 0; i < values.size(); i++) sb.append(i > 0 ? ", " : "").append(Html.esc(values.get(i)));
+                sb.append("</div>");
+            }
             List<ConceptClasses.Kind> subs = c.subclasses(cls);
             if (!subs.isEmpty()) {
                 sb.append("<h3>Kinds of it</h3><div class=\"child\">");
@@ -210,10 +216,16 @@ public final class ClassPanel {
         return out;
     }
 
+    /** A file that stands alone ({@code concept-consolidate.yaml}'s result) is read without the classes of {@code concepts/}. */
     private ConceptClasses classes(String set) {
-        Map<String, String> files = new LinkedHashMap<>(library);
+        Map<String, String> files = new LinkedHashMap<>();
+        if (!standalone(set)) files.putAll(library);
         if (!set.isEmpty() && results.containsKey(set)) files.put(set, results.get(set));
         return new ConceptClasses(files);
+    }
+
+    private boolean standalone(String set) {
+        return !set.isEmpty() && results.containsKey(set) && results.get(set).contains("\n;;; standalone\n");
     }
 
     private boolean defines(String set, String cls) {
@@ -222,7 +234,7 @@ public final class ClassPanel {
 
     /** @return the classes the set's file defines that {@code concepts/} does not */
     private Set<String> added(String set) {
-        if (set.isEmpty() || !results.containsKey(set)) return Set.of();
+        if (set.isEmpty() || !results.containsKey(set) || standalone(set)) return Set.of();
         Set<String> out = defined(results.get(set));
         out.removeAll(libraryClasses());
         return out;
@@ -230,7 +242,7 @@ public final class ClassPanel {
 
     /** @return the classes of {@code concepts/} the set's file defines again, with slots added */
     private Set<String> grown(String set) {
-        if (set.isEmpty() || !results.containsKey(set)) return Set.of();
+        if (set.isEmpty() || !results.containsKey(set) || standalone(set)) return Set.of();
         Set<String> out = defined(results.get(set));
         out.retainAll(libraryClasses());
         return out;
