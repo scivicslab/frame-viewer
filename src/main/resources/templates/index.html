@@ -14,6 +14,7 @@
       <a href="#" class="tab" data-tab="concrete">Concrete frames</a>
       <a href="#" class="tab" data-tab="integrated">Integrated frames</a>
       <a href="#" class="tab" data-tab="classes">Classes</a>
+      <a href="#" class="tab" data-tab="workflows">Workflows</a>
     </span>
     <span class="hint">★ marks a tag with a frame. Every name in a panel is a link to its own tab.</span></div>
   <div class="layout" data-tab="tags"><div class="tree"></div><div class="panel"><p class="hint">Select a tag. Tags marked ★ have a concrete frame.</p></div></div>
@@ -22,6 +23,7 @@
     <div class="pane source-pane"></div></div></div>
   <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel"><p class="hint">Select an integrated frame.</p></div></div>
   <div class="layout" data-tab="classes"><div class="tree"></div><div class="panel"><p class="hint">Select a class. + marks a class added while assigning paragraphs, ± a class that got slots added.</p></div></div>
+  <div class="layout" data-tab="workflows"><div class="tree"></div><div class="panel"><p class="hint">Select a workflow. They are numbered in the order they run to make frames from a book.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
   <script src="vendor/jstree/jstree.min.js"></script>
   <script>
@@ -106,7 +108,8 @@
       });
       $tree.on('select_node.jstree', function (e, data) {
         var a = data.node.li_attr || {};
-        if (a['data-class']) { openClass(a['data-set'] || '', a['data-class']); }
+        if (a['data-workflow']) { load('workflows', 'workflow', { name: a['data-workflow'] }); }
+        else if (a['data-class']) { openClass(a['data-set'] || '', a['data-class']); }
         else if (a['data-frame']) { openFrame(a['data-frame']); }
         else if (a['data-tag']) { openTag(a['data-tag']); }
       });

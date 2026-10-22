@@ -49,6 +49,11 @@
       <version>4.6.0-SNAPSHOT</version>
     </dependency>
     <dependency>
+      <!-- reads the frame-making workflows (Turing Workflow YAML) for the Workflows tab -->
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-arc</artifactId>
     </dependency>

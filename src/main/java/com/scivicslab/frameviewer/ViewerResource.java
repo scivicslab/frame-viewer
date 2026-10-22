@@ -34,6 +34,12 @@ public class ViewerResource {
     @ConfigProperty(name = "frame-viewer.works-dir")
     String worksDir;
 
+    @ConfigProperty(name = "frame-viewer.workflows-dir")
+    String workflowsDir;
+
+    @ConfigProperty(name = "frame-viewer.workflows")
+    List<String> workflows;
+
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance page() {
@@ -52,6 +58,7 @@ public class ViewerResource {
             case "concrete" -> lib.frameTree(false);
             case "integrated" -> lib.frameTree(true);
             case "classes" -> classPanel().tree();
+            case "workflows" -> workflowPanel().tree();
             default -> lib.tagTree();
         };
     }
@@ -63,6 +70,28 @@ public class ViewerResource {
         if (tag == null || tag.isBlank()) return "<p class=\"hint\">No tag given.</p>";
         Library lib = load();
         return new TagPanel(lib, new Sources(lib, this::readUnderWorks)).render(tag);
+    }
+
+    /** The workflows tab's panel: one frame-making workflow. */
+    @GET
+    @jakarta.ws.rs.Path("workflow")
+    @Produces(MediaType.TEXT_HTML)
+    public String workflow(@QueryParam("name") String name) {
+        if (name == null || name.isBlank()) return "<p class=\"hint\">No workflow given.</p>";
+        return workflowPanel().render(name);
+    }
+
+    /** Reads the frame-making workflows named in the configuration, from their directory, on every request. */
+    WorkflowPanel workflowPanel() {
+        Path dir = Path.of(workflowsDir).toAbsolutePath().normalize();
+        java.util.Map<String, String> texts = new java.util.LinkedHashMap<>();
+        for (String w : workflows) {
+            Path f = dir.resolve(w.strip() + ".yaml");
+            if (Files.isRegularFile(f)) texts.put(w.strip(), read(f));
+        }
+        Path works = Path.of(worksDir).toAbsolutePath().normalize();
+        String under = dir.startsWith(works) ? works.relativize(dir).toString().replace('\\', '/') : null;
+        return new WorkflowPanel(workflows.stream().map(String::strip).toList(), texts, under);
     }
 
     /** The class tab's panel: one concept class, seen alone ({@code set} empty) or with one file of assignments. */

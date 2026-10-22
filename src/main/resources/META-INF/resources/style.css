@@ -59,3 +59,7 @@ pre.raw .edges a.edge:hover { text-decoration: underline; }
 .ex-slot { margin: 6px 0; }
 .ex-question { font-size: 0.85em; color: #357; }
 .ex-para { margin: 2px 0 2px 12px; line-height: 1.45; }
+.wf-description { white-space: pre-wrap; }
+.wf-table { border-collapse: collapse; font-size: 0.88em; margin: 4px 0 10px; }
+.wf-table th, .wf-table td { border: 1px solid #e3e3e3; padding: 3px 6px; vertical-align: top; text-align: left; }
+.wf-table th { background: #f4f4f4; }
