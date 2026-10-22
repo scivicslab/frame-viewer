@@ -40,6 +40,9 @@ public class ViewerResource {
     @ConfigProperty(name = "frame-viewer.workflows")
     List<String> workflows;
 
+    @ConfigProperty(name = "frame-viewer.books-db")
+    String booksDb;
+
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance page() {
@@ -59,6 +62,8 @@ public class ViewerResource {
             case "integrated" -> lib.frameTree(true);
             case "classes" -> classPanel().tree();
             case "workflows" -> workflowPanel().tree();
+            case "contents" -> bookPanel().contentsTree();
+            case "sections" -> bookPanel().sectionsTree();
             default -> lib.tagTree();
         };
     }
@@ -70,6 +75,41 @@ public class ViewerResource {
         if (tag == null || tag.isBlank()) return "<p class=\"hint\">No tag given.</p>";
         Library lib = load();
         return new TagPanel(lib, new Sources(lib, this::readUnderWorks)).render(tag);
+    }
+
+    /** The Contents tab's panel: one node of a book's table of contents. */
+    @GET
+    @jakarta.ws.rs.Path("book-node")
+    @Produces(MediaType.TEXT_HTML)
+    public String bookNode(@QueryParam("book") String book, @QueryParam("number") String number) {
+        if (book == null || number == null) return "<p class=\"hint\">No node given.</p>";
+        return bookPanel().node(book, number);
+    }
+
+    /** The Sections tab's panel: one section's text. */
+    @GET
+    @jakarta.ws.rs.Path("book-section")
+    @Produces(MediaType.TEXT_HTML)
+    public String bookSection(@QueryParam("book") String book, @QueryParam("number") String number) {
+        if (book == null || number == null) return "<p class=\"hint\">No section given.</p>";
+        return bookPanel().section(book, number);
+    }
+
+    /**
+     * Reads every book the H2 database of the intermediate data holds (book-toc.yaml and book-sections.yaml write it),
+     * on every request, so that a run of either shows on the next click. No database yet means no book.
+     */
+    BookPanel bookPanel() {
+        List<BookPanel.Book> books = new java.util.ArrayList<>();
+        Path db = Path.of(booksDb).toAbsolutePath().normalize();
+        if (Files.isRegularFile(Path.of(db + ".mv.db"))) {
+            try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore("jdbc:h2:" + db + ";AUTO_SERVER=TRUE")) {
+                for (String b : store.books()) books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b)));
+            } catch (java.sql.SQLException e) {
+                throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
+            }
+        }
+        return new BookPanel(books, Path.of(worksDir).toAbsolutePath().normalize().toString());
     }
 
     /** The workflows tab's panel: one frame-making workflow. */
