@@ -25,8 +25,10 @@ public final class Sources {
     private final Map<String, RuleFile> files = new TreeMap<>();
     private final Map<String, List<String>> filesOfFrame = new LinkedHashMap<>();
     private final Map<String, Map<String, List<Claim>>> claims = new LinkedHashMap<>();
+    private final Function<String, String> readWorks;
 
     public Sources(Library library, Function<String, String> readWorks) {
+        this.readWorks = readWorks;
         for (Library.Frame f : library.frames(false)) {
             // a sub-frame reads its own made-from lines first, then those of its top frame
             Library.Frame top = library.frame(f.topPath());
@@ -61,6 +63,17 @@ public final class Sources {
             List<Claim> list = claims.computeIfAbsent(file, k -> new LinkedHashMap<>()).computeIfAbsent(word, k -> new ArrayList<>());
             if (!list.contains(new Claim(frame, kind))) list.add(new Claim(frame, kind));
         }
+    }
+
+    /**
+     * @return the html-saurus page of a source file: the page of the markdown file beside it ({@code x.md} for
+     *         {@code x.lisp}), or null when there is none
+     */
+    public String saurusPageOf(String file) {
+        if (!file.endsWith(".lisp")) return null;
+        String md = file.substring(0, file.length() - 5) + ".md";
+        String text = readWorks.apply(md);
+        return text == null ? null : Html.saurusPage(md, text);
     }
 
     /** @return the source files some frame was made from, by path under the works directory, sorted */

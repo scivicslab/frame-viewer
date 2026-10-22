@@ -1,8 +1,9 @@
 package com.scivicslab.frameviewer;
 
-import static com.scivicslab.frameviewer.FramePanel.esc;
-import static com.scivicslab.frameviewer.FramePanel.frameLink;
-import static com.scivicslab.frameviewer.FramePanel.tagLink;
+import static com.scivicslab.frameviewer.Html.esc;
+import static com.scivicslab.frameviewer.Html.frameLink;
+import static com.scivicslab.frameviewer.Html.saurusLink;
+import static com.scivicslab.frameviewer.Html.tagLink;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -80,7 +81,7 @@ public final class RawPanel {
         sb.append("<div class=\"raw-head\"><b>").append(esc(path)).append("</b>");
         if (!frame.isTop() && library.frame(frame.topPath()) != null) sb.append("<br>Part of: ").append(frameLink(frame.topPath()));
         sb.append("</div><pre class=\"raw\">");
-        String dir = FramePanel.dirOf(path);
+        String dir = Html.dirOf(path);
         for (String line : text.split("\n", -1)) {
             Matcher m = LISP_FILE.matcher(line);
             int at = 0;
@@ -131,7 +132,10 @@ public final class RawPanel {
                     .append(esc(other.substring(other.lastIndexOf('/') + 1))).append("</option>");
         }
         sb.append("</select> <span class=\"hint\">").append(files.size()).append(" source file").append(files.size() == 1 ? "" : "s")
-                .append(" of this frame</span><div class=\"raw-path\">").append(esc(file)).append("</div></div><pre class=\"raw\">");
+                .append(" of this frame</span>");
+        String page = sources.saurusPageOf(file);
+        if (page != null) sb.append(" ").append(saurusLink(page, "html-saurus"));
+        sb.append("<div class=\"raw-path\">").append(esc(file)).append("</div></div><pre class=\"raw\">");
         boolean hit = false;
         for (String line : text.split("\n", -1)) {
             Matcher m = DEFRULE.matcher(line);

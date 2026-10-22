@@ -1,8 +1,8 @@
 package com.scivicslab.frameviewer;
 
-import static com.scivicslab.frameviewer.FramePanel.esc;
-import static com.scivicslab.frameviewer.FramePanel.frameLink;
-import static com.scivicslab.frameviewer.FramePanel.sourceLink;
+import static com.scivicslab.frameviewer.Html.esc;
+import static com.scivicslab.frameviewer.Html.frameLink;
+import static com.scivicslab.frameviewer.Html.saurusLink;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +50,10 @@ public final class TagPanel {
         list("Integrated into", integrated, sb);
         if (!files.isEmpty()) {
             sb.append("<h3>Source</h3><ul>");
-            for (String file : files) sb.append("<li>").append(sourceLink(file, null, file)).append("</li>");
+            for (String file : files) {
+                String page = sources.saurusPageOf(file);
+                sb.append("<li>").append(page == null ? esc(file) : saurusLink(page, file)).append("</li>");
+            }
             sb.append("</ul>");
         }
         sb.append("</div>");

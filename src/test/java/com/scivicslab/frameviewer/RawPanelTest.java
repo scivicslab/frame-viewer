@@ -55,10 +55,12 @@ class RawPanelTest {
         String second = "doc_X/docs/Book/Chap23/c/c.lisp";
         String frame = FRAME.replace(" / ch23", " doc_X/docs/Book/Chap23/c / ch23");
         Library lib = new Library().addFrame("subject/b/design.lisp", frame);
-        RawPanel panel = new RawPanel(lib, new Sources(lib, Map.of(FILE, SOURCE, second, "(defrule ch23 -> p-more)")::get));
+        RawPanel panel = new RawPanel(lib, new Sources(lib, Map.of(FILE, SOURCE, second, "(defrule ch23 -> p-more)",
+                "doc_X/docs/Book/Chap23/c/c.md", "---\nid: CPage_1\n---\n")::get));
         String html = panel.source(second, "(defrule ch23 -> p-more)", "subject/b/design.lisp");
         assertTrue(html.contains("<select class=\"raw-file-select\" title=\"" + second + "\"><option value=\"" + FILE + "\">b.lisp</option>"
                 + "<option value=\"" + second + "\" selected>c.lisp</option></select> <span class=\"hint\">2 source files of this frame</span>"), html);
+        assertTrue(html.contains("of this frame</span> <a href=\"#\" class=\"saurus-link\" data-saurus=\"doc_X/Book/Chap23/CPage_1/\">html-saurus</a>"), html);
     }
 
     @Test

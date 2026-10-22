@@ -8,7 +8,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-/** Pure tests of the source index, the tag panel and the source panel: which frame took which paragraph. */
+/** Pure tests of the source index and the tag panel: which frame took which paragraph. */
 class SourcesTest {
 
     private static final String DIR = "doc_X/docs/Book/Chap23/book p391-400";
@@ -89,26 +89,14 @@ class SourcesTest {
     }
 
     @Test
-    void theSourcePanelMarksEachParagraphWithTheFramesThatTookIt() {
-        String html = new SourcePanel(sources()).render(FILE);
-        assertTrue(html.contains("<b>23 Design</b> <span class=\"name\">ch23</span> <span class=\"claim claim-made-from\">"), html);
-        assertTrue(html.contains("id=\"r-p-aside\"><span class=\"name\">p-aside</span> <span class=\"claim claim-left-out\">left-out: "
-                + "<a href=\"#\" class=\"frame-link\" data-frame=\"subject/b/design.lisp\">"), html);
-        assertTrue(html.contains("<div class=\"para covered\" id=\"r-p-free\"><span class=\"name\">p-free</span><div class=\"text\">Nobody took this.</div>"), html);
-        assertTrue(html.indexOf("r-p-plan") < html.indexOf("r-p-case") && html.indexOf("r-p-case") < html.indexOf("r-p-aside"));
-    }
-
-    @Test
-    void aParagraphOutsideEveryNamedSectionIsUnclaimed() {
-        Library lib = new Library().addFrame("subject/b/s.lisp", ";;; made-from: " + DIR + " / p-plan\n(defrule d -> :instruction \"x\")");
-        String html = new SourcePanel(new Sources(lib, WORKS::get)).render(FILE);
-        assertTrue(html.contains("<div class=\"para\" id=\"r-p-plan\">"), html);
-        assertTrue(html.contains("<div class=\"para unclaimed\" id=\"r-p-case\">"), html);
-    }
-
-    @Test
-    void aHeadedSectionWithItsOwnTextIsAParagraph() {
-        assertTrue(new SourcePanel(sources()).render(PAPER).contains("id=\"r-s-glance\""));
+    void aSourceWithMarkdownBesideItLinksToItsHtmlSaurusPage() {
+        Map<String, String> works = new java.util.HashMap<>(WORKS);
+        works.put(DIR + "/book p391-400.md", "---\ntitle: x\n---\nbody");
+        Library lib = library();
+        Sources s = new Sources(lib, works::get);
+        assertEquals("doc_X/Book/Chap23/book p391-400/", s.saurusPageOf(FILE));
+        String html = new TagPanel(lib, s).render("b|23");
+        assertTrue(html.contains("<li><a href=\"#\" class=\"saurus-link\" data-saurus=\"doc_X/Book/Chap23/book p391-400/\">" + FILE + "</a></li>"), html);
     }
 
     @Test
@@ -117,7 +105,7 @@ class SourcesTest {
         String html = new TagPanel(lib, new Sources(lib, WORKS::get)).render("b|23");
         assertTrue(html.contains("data-frame=\"subject/b/design.lisp\""), html);
         assertTrue(html.contains("<h3>Integrated into</h3><ul><li><a href=\"#\" class=\"frame-link\" data-frame=\"explanation/explain-program.lisp\">"), html);
-        assertTrue(html.contains("data-source=\"" + FILE + "\""), html);
+        assertTrue(html.contains("<li>" + FILE + "</li>"), "no markdown beside the source: the path, not a link");
         assertTrue(new TagPanel(lib, new Sources(lib, WORKS::get)).render("b|24").contains("No frame names this tag."));
     }
 }

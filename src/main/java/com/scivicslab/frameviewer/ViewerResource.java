@@ -40,7 +40,7 @@ public class ViewerResource {
         return index.instance();
     }
 
-    /** @param tab {@code tags}, {@code concrete}, {@code sources} or {@code integrated} */
+    /** @param tab {@code tags}, {@code concrete} or {@code integrated} */
     @GET
     @jakarta.ws.rs.Path("tree")
     @Produces(MediaType.APPLICATION_JSON)
@@ -49,18 +49,8 @@ public class ViewerResource {
         return switch (tab == null ? "tags" : tab) {
             case "concrete" -> lib.frameTree(false);
             case "integrated" -> lib.frameTree(true);
-            case "sources" -> sourceTree(new Sources(lib, this::readUnderWorks));
             default -> lib.tagTree();
         };
-    }
-
-    @GET
-    @jakarta.ws.rs.Path("frame")
-    @Produces(MediaType.TEXT_HTML)
-    public String frame(@QueryParam("path") String path) {
-        if (path == null || path.isBlank()) return "<p class=\"hint\">No frame given.</p>";
-        Library lib = load();
-        return new FramePanel(lib, new Sources(lib, this::readUnderWorks)).render(path);
     }
 
     @GET
@@ -70,15 +60,6 @@ public class ViewerResource {
         if (tag == null || tag.isBlank()) return "<p class=\"hint\">No tag given.</p>";
         Library lib = load();
         return new TagPanel(lib, new Sources(lib, this::readUnderWorks)).render(tag);
-    }
-
-    @GET
-    @jakarta.ws.rs.Path("source")
-    @Produces(MediaType.TEXT_HTML)
-    public String source(@QueryParam("file") String file) {
-        if (file == null || file.isBlank()) return "<p class=\"hint\">No source given.</p>";
-        Library lib = load();
-        return new SourcePanel(new Sources(lib, this::readUnderWorks)).render(file);
     }
 
     /** The left pane of the concrete-frame tab: the frame file as it is, with its header words linked to paragraphs. */
@@ -109,25 +90,6 @@ public class ViewerResource {
         if (file == null || file.isBlank()) return "<p class=\"hint\">No source given.</p>";
         Library lib = load();
         return new RawPanel(lib, new Sources(lib, this::readUnderWorks)).source(file, readUnderWorks(file), frame == null ? "" : frame);
-    }
-
-    /** The source files grouped by the directory of the book or paper they belong to. */
-    static List<Library.TreeNode> sourceTree(Sources sources) {
-        List<Library.TreeNode> out = new java.util.ArrayList<>();
-        java.util.Set<String> dirs = new java.util.HashSet<>();
-        for (String f : sources.files()) {
-            String dir = bookDir(f);
-            if (dirs.add(dir)) out.add(new Library.TreeNode("d:" + dir, "#", dir, java.util.Map.of()));
-            String name = f.substring(f.lastIndexOf('/') + 1);
-            out.add(new Library.TreeNode("f:" + f, "d:" + dir, name, java.util.Map.of("data-source", f, "class", "has-frame")));
-        }
-        return out;
-    }
-
-    /** {@code doc_X/docs/Shelf/Book/Chap03/x/x.lisp} → {@code doc_X/docs/Shelf/Book} */
-    static String bookDir(String file) {
-        String[] p = file.split("/");
-        return String.join("/", java.util.Arrays.copyOf(p, Math.min(4, p.length - 1)));
     }
 
     /** Reads {@code subjects/*.lisp} and every {@code .lisp} under {@code frames/}. */

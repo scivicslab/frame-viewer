@@ -181,7 +181,7 @@ public final class Library {
         List<TreeNode> out = new ArrayList<>();
         java.util.Set<String> dirs = new java.util.HashSet<>();
         for (Frame f : frames(integrated)) {
-            String dir = FramePanel.dirOf(f.path());
+            String dir = Html.dirOf(f.path());
             if (dirs.add(dir)) out.add(new TreeNode("d:" + dir, "#", dir, Map.of()));
             String name = f.path().substring(f.path().lastIndexOf('/') + 1);
             String parent = f.isTop() || frame(f.topPath()) == null ? "d:" + dir : "f:" + f.topPath();

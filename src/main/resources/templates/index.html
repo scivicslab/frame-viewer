@@ -12,7 +12,6 @@
     <span class="tabs">
       <a href="#" class="tab" data-tab="tags">Tags</a>
       <a href="#" class="tab" data-tab="concrete">Concrete frames</a>
-      <a href="#" class="tab" data-tab="sources">Sources</a>
       <a href="#" class="tab" data-tab="integrated">Integrated frames</a>
     </span>
     <span class="hint">★ marks a tag with a frame. Every name in a panel is a link to its own tab.</span></div>
@@ -20,7 +19,6 @@
   <div class="layout" data-tab="concrete"><div class="tree"></div><div class="panel split">
     <div class="pane frame-pane"><p class="hint">Select a concrete frame. It shows here, and its source beside it.</p></div>
     <div class="pane source-pane"></div></div></div>
-  <div class="layout" data-tab="sources"><div class="tree"></div><div class="panel"><p class="hint">Select a source file.</p></div></div>
   <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel"><p class="hint">Select an integrated frame.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
   <script src="vendor/jstree/jstree.min.js"></script>
@@ -80,7 +78,6 @@
       $.get('raw-source', { file: file, frame: shownFrame }, function (html) { $pane.html(html); shownSource = file; reveal(); });
     }
     function openTag(tag) { load('tags', 'tag', { tag: tag }); }
-    function openSource(file, rule) { load('sources', 'source', { file: file }, rule); }
 
     $('.layout').each(function () {
       var tab = $(this).attr('data-tab');
@@ -94,10 +91,14 @@
         var a = data.node.li_attr || {};
         if (a['data-frame']) { openFrame(a['data-frame']); }
         else if (a['data-tag']) { openTag(a['data-tag']); }
-        else if (a['data-source']) { openSource(a['data-source']); }
       });
     });
 
+    // html-saurus does not run under the AI workspace's path prefix, so it is reached on its own port of this host.
+    $(document).on('click', 'a.saurus-link', function (e) {
+      e.preventDefault();
+      window.open(location.protocol + '//' + location.hostname + ':28001/#/' + encodeURI($(this).attr('data-saurus')), '_blank');
+    });
     $(document).on('change', '.source-pane select.raw-file-select', function () { openRawSource($(this).val()); });
     $(document).on('click', '.frame-pane a.raw-rule', function (e) { e.preventDefault(); openRawSource($(this).attr('data-source'), $(this).attr('data-rule')); });
 
@@ -105,10 +106,6 @@
 
     $(document).on('click', '.panel a.frame-link', function (e) { e.preventDefault(); openFrame($(this).attr('data-frame')); });
     $(document).on('click', '.panel a.tag-link', function (e) { e.preventDefault(); openTag($(this).attr('data-tag')); });
-    $(document).on('click', '.panel a.source-link', function (e) {
-      e.preventDefault();
-      openSource($(this).attr('data-source'), $(this).attr('data-rule'));
-    });
 
     var first = 'tags';
     try { first = localStorage.getItem('frame-viewer-tab') || 'tags'; } catch (e) { }
