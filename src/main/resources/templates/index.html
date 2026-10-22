@@ -13,6 +13,7 @@
       <a href="#" class="tab" data-tab="tags">Tags</a>
       <a href="#" class="tab" data-tab="concrete">Concrete frames</a>
       <a href="#" class="tab" data-tab="integrated">Integrated frames</a>
+      <a href="#" class="tab" data-tab="classes">Classes</a>
     </span>
     <span class="hint">★ marks a tag with a frame. Every name in a panel is a link to its own tab.</span></div>
   <div class="layout" data-tab="tags"><div class="tree"></div><div class="panel"><p class="hint">Select a tag. Tags marked ★ have a concrete frame.</p></div></div>
@@ -20,6 +21,7 @@
     <div class="pane frame-pane"><p class="hint">Select a concrete frame. It shows here, and its source beside it.</p></div>
     <div class="pane source-pane"></div></div></div>
   <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel"><p class="hint">Select an integrated frame.</p></div></div>
+  <div class="layout" data-tab="classes"><div class="tree"></div><div class="panel"><p class="hint">Select a class. + marks a class added while assigning paragraphs, ± a class that got slots added.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
   <script src="vendor/jstree/jstree.min.js"></script>
   <script>
@@ -92,6 +94,7 @@
       });
     }
     function openTag(tag) { load('tags', 'tag', { tag: tag }); }
+    function openClass(set, name) { load('classes', 'concept-class', { set: set, name: name }); }
 
     $('.layout').each(function () {
       var tab = $(this).attr('data-tab');
@@ -103,7 +106,8 @@
       });
       $tree.on('select_node.jstree', function (e, data) {
         var a = data.node.li_attr || {};
-        if (a['data-frame']) { openFrame(a['data-frame']); }
+        if (a['data-class']) { openClass(a['data-set'] || '', a['data-class']); }
+        else if (a['data-frame']) { openFrame(a['data-frame']); }
         else if (a['data-tag']) { openTag(a['data-tag']); }
       });
     });
@@ -136,6 +140,13 @@
     $('.tab').on('click', function (e) { e.preventDefault(); showTab($(this).attr('data-tab')); });
 
     $(document).on('click', '.panel a.frame-link', function (e) { e.preventDefault(); openFrame($(this).attr('data-frame'), $(this).attr('data-rule')); });
+    $(document).on('click', '.panel a.class-link', function (e) { e.preventDefault(); openClass($(this).attr('data-set'), $(this).attr('data-class')); });
+    // A paragraph assigned to a slot opens in the source pane of the concrete-frame tab, brought into view.
+    $(document).on('click', '.panel a.class-source', function (e) {
+      e.preventDefault();
+      showTab('concrete');
+      openRawSource($(this).attr('data-source'), $(this).attr('data-rule'));
+    });
     $(document).on('click', '.panel a.tag-link', function (e) { e.preventDefault(); openTag($(this).attr('data-tag')); });
 
     var first = 'tags';

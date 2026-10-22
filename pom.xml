@@ -43,6 +43,12 @@
       <artifactId>quarkus-rest-qute</artifactId>
     </dependency>
     <dependency>
+      <!-- concept classes are read and their inheritance computed by CLOS in ABCL, the way step 3 reads them -->
+      <groupId>com.scivicslab.turingworkflow.plugins</groupId>
+      <artifactId>plugin-rst-frame</artifactId>
+      <version>4.6.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-arc</artifactId>
     </dependency>

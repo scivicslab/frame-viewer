@@ -51,6 +51,7 @@ public class ViewerResource {
         return switch (tab == null ? "tags" : tab) {
             case "concrete" -> lib.frameTree(false);
             case "integrated" -> lib.frameTree(true);
+            case "classes" -> classPanel().tree();
             default -> lib.tagTree();
         };
     }
@@ -62,6 +63,27 @@ public class ViewerResource {
         if (tag == null || tag.isBlank()) return "<p class=\"hint\">No tag given.</p>";
         Library lib = load();
         return new TagPanel(lib, new Sources(lib, this::readUnderWorks)).render(tag);
+    }
+
+    /** The class tab's panel: one concept class, seen alone ({@code set} empty) or with one file of assignments. */
+    @GET
+    @jakarta.ws.rs.Path("concept-class")
+    @Produces(MediaType.TEXT_HTML)
+    public String conceptClass(@QueryParam("set") String set, @QueryParam("name") String name) {
+        if (name == null || name.isBlank()) return "<p class=\"hint\">No class given.</p>";
+        return classPanel().render(set == null ? "" : set, name);
+    }
+
+    /** Reads the class files, {@code concepts/**}, and the files of assignments, {@code assignments/**}, beside {@code frames/}. */
+    ClassPanel classPanel() {
+        Path root = Path.of(rstOnLispDir).toAbsolutePath().normalize();
+        java.util.Map<String, String> library = new java.util.LinkedHashMap<>();
+        for (Path p : lisp(root.resolve("concepts"))) library.put(root.relativize(p).toString().replace('\\', '/'), read(p));
+        java.util.Map<String, String> results = new java.util.LinkedHashMap<>();
+        for (Path p : lisp(root.resolve("assignments"))) results.put(root.relativize(p).toString().replace('\\', '/'), read(p));
+        Path works = Path.of(worksDir).toAbsolutePath().normalize();
+        String rstUnderWorks = root.startsWith(works) ? works.relativize(root).toString().replace('\\', '/') : null;
+        return new ClassPanel(library, results, works.toString(), this::readUnderWorks, rstUnderWorks);
     }
 
     /** The left pane of the concrete-frame tab: the frame file as it is, with its header words linked to paragraphs. */
