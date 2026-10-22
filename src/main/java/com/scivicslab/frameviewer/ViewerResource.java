@@ -90,9 +90,21 @@ public class ViewerResource {
     @GET
     @jakarta.ws.rs.Path("book-section")
     @Produces(MediaType.TEXT_HTML)
-    public String bookSection(@QueryParam("book") String book, @QueryParam("number") String number) {
+    public String bookSection(@QueryParam("book") String book, @QueryParam("number") String number, @QueryParam("view") String view) {
         if (book == null || number == null) return "<p class=\"hint\">No section given.</p>";
-        return bookPanel().section(book, number);
+        com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules = null;
+        if ("rst".equals(view)) {
+            try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
+                rules = store.sectionRules(book, number);
+            } catch (java.sql.SQLException e) {
+                throw new IllegalStateException("could not read " + booksDb + ": " + e.getMessage(), e);
+            }
+        }
+        return bookPanel().section(book, number, view == null ? "md" : view, rules);
+    }
+
+    private String booksUrl() {
+        return "jdbc:h2:" + Path.of(booksDb).toAbsolutePath().normalize() + ";AUTO_SERVER=TRUE";
     }
 
     /**
@@ -103,8 +115,10 @@ public class ViewerResource {
         List<BookPanel.Book> books = new java.util.ArrayList<>();
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
         if (Files.isRegularFile(Path.of(db + ".mv.db"))) {
-            try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore("jdbc:h2:" + db + ";AUTO_SERVER=TRUE")) {
-                for (String b : store.books()) books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b)));
+            try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
+                for (String b : store.books()) {
+                    books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b), store.sectionsWithRules(b), store.concepts(b)));
+                }
             } catch (java.sql.SQLException e) {
                 throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
             }

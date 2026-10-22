@@ -150,6 +150,11 @@
 
     $(document).on('click', '.panel a.frame-link', function (e) { e.preventDefault(); openFrame($(this).attr('data-frame'), $(this).attr('data-rule')); });
     $(document).on('click', '.panel a.node-link', function (e) { e.preventDefault(); load('contents', 'book-node', { book: $(this).attr('data-book'), number: $(this).attr('data-node') }); });
+    // the switch atop a section's text: its markdown, or its rst-on-lisp rule file (step 3)
+    $(document).on('click', '.panel a.section-view', function (e) {
+      e.preventDefault();
+      load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section'), view: $(this).attr('data-view') });
+    });
     $(document).on('click', '.panel a.section-link', function (e) { e.preventDefault(); load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section') }); });
     $(document).on('click', '.panel a.class-link', function (e) { e.preventDefault(); openClass($(this).attr('data-set'), $(this).attr('data-class')); });
     // A paragraph assigned to a slot opens in the source pane of the concrete-frame tab, brought into view.

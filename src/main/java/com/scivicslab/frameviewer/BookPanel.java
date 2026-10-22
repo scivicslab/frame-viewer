@@ -15,8 +15,12 @@ import com.scivicslab.turingworkflow.plugins.rstframe.BookSections;
  */
 public final class BookPanel {
 
-    /** One book as the database holds it: its name, its directory, its table of contents and its sections. */
-    public record Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections) {
+    /**
+     * One book as the database holds it: its name, its directory, its table of contents, its sections, which sections
+     * have a rule file, and the concepts each section explains.
+     */
+    public record Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections,
+            java.util.Set<String> withRules, Map<String, List<String>> concepts) {
     }
 
     private final Map<String, Book> books = new LinkedHashMap<>();
@@ -53,7 +57,9 @@ public final class BookPanel {
             for (BookSections.Section s : b.sections()) {
                 BookOutline.Node n = nodes.get(s.number());
                 String title = n == null ? "" : n.title();
-                String text = s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "");
+                String text = s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")
+                        + (b.withRules().contains(s.number()) ? " · rst" : "")
+                        + (b.concepts().containsKey(s.number()) ? " · " + b.concepts().get(s.number()).size() + " concepts" : "");
                 out.add(new Library.TreeNode("s:" + b.name() + "|" + s.number(), root, text, Map.of("data-book", b.name(), "data-section", s.number())));
             }
         }
@@ -89,8 +95,13 @@ public final class BookPanel {
         return sb.toString();
     }
 
-    /** The Sections tab's panel: one section's text as markdown, with the page files it was read from. */
-    public String section(String book, String number) {
+    /**
+     * The Sections tab's panel: one section, with the page files it was read from, the concepts it explains (step 4),
+     * and either its markdown text ({@code view} {@code md}) or its rst-on-lisp rule file with its code files ({@code rst}).
+     *
+     * @param rules the section's rule file, or {@code null} when it has none yet
+     */
+    public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules) {
         Book b = books.get(book);
         if (b == null) return "<p class=\"hint\">No book " + Html.esc(book) + " in the database.</p>";
         BookSections.Section s = b.sections().stream().filter(x -> x.number().equals(number)).findFirst().orElse(null);
@@ -107,9 +118,34 @@ public final class BookPanel {
             if (abs.startsWith(worksDir)) sb.append(' ').append(Html.editWorksLink(abs.substring(worksDir.length())));
             sb.append("</div>");
         }
-        sb.append("<h3>Its text</h3>");
-        if (s.text().isEmpty()) sb.append("<p class=\"hint\">(no text of its own: its subsections hold it)</p>");
-        else sb.append("<pre class=\"raw md\">").append(Html.esc(s.text())).append("</pre>");
+        sb.append("<h3>The concepts it explains</h3>");
+        List<String> concepts = b.concepts().get(number);
+        if (concepts == null) sb.append("<p class=\"hint\">(not listed yet)</p>");
+        else if (concepts.isEmpty()) sb.append("<p class=\"hint\">(none)</p>");
+        else {
+            sb.append("<ul class=\"concepts\">");
+            for (String c : concepts) sb.append("<li>").append(Html.esc(c)).append("</li>");
+            sb.append("</ul>");
+        }
+        boolean rst = "rst".equals(view);
+        sb.append("<h3>Its text <span class=\"raw-views\">")
+          .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? "" : " active").append("\" data-view=\"md\" data-book=\"")
+          .append(Html.esc(book)).append("\" data-section=\"").append(Html.esc(number)).append("\">markdown</a>")
+          .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? " active" : "").append("\" data-view=\"rst\" data-book=\"")
+          .append(Html.esc(book)).append("\" data-section=\"").append(Html.esc(number)).append("\">rst-on-lisp</a></span></h3>");
+        if (!rst) {
+            if (s.text().isEmpty()) sb.append("<p class=\"hint\">(no text of its own: its subsections hold it)</p>");
+            else sb.append("<pre class=\"raw md\">").append(Html.esc(s.text())).append("</pre>");
+        } else if (rules == null) {
+            sb.append("<p class=\"hint\">(no rule file yet: step 3 has not made this section into rst-on-lisp)</p>");
+        } else {
+            sb.append("<div class=\"raw-path\">").append(rules.questions()).append(" questions asked</div>");
+            sb.append("<pre class=\"raw lisp\">").append(Html.esc(rules.rules())).append("</pre>");
+            for (var e : rules.code().entrySet()) {
+                sb.append("<div class=\"raw-path\">").append(Html.esc(e.getKey())).append("</div><pre class=\"raw\">")
+                  .append(Html.esc(e.getValue())).append("</pre>");
+            }
+        }
         return sb.toString();
     }
 

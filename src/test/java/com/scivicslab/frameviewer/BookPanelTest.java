@@ -22,7 +22,8 @@ class BookPanelTest {
                 new BookSections.Section("4", "In this chapter.", List.of("Chap04/p001.md")),
                 new BookSections.Section("4.1", "", List.of("Chap04/p001.md")),
                 new BookSections.Section("4.1.1", "A class is a template.\n\nIt runs on.", List.of("Chap04/p001.md", "Chap04/p006.md")));
-        return new BookPanel(List.of(new BookPanel.Book("core", "/w/books/core", outline, sections)), "/w");
+        return new BookPanel(List.of(new BookPanel.Book("core", "/w/books/core", outline, sections, java.util.Set.of("4.1.1"),
+                java.util.Map.of("4.1.1", List.of("class", "instance", "encapsulation")))), "/w");
     }
 
     @Test
@@ -33,7 +34,7 @@ class BookPanelTest {
                 java.util.Map.of("data-book", "core", "data-node", "4.1.1", "data-level", "subsection")), c.get(3));
         List<Library.TreeNode> s = panel().sectionsTree();
         assertEquals("core (3 sections)", s.get(0).text());
-        assertEquals("4.1.1 Classes  · 35 chars, 2 files", s.get(3).text());
+        assertEquals("4.1.1 Classes  · 35 chars, 2 files · rst · 3 concepts", s.get(3).text());
         assertEquals("sb:core", s.get(3).parent());
     }
 
@@ -48,10 +49,23 @@ class BookPanelTest {
 
     @Test
     void aSectionShowsItsFilesAndItsText() {
-        String html = panel().section("core", "4.1.1");
+        String html = panel().section("core", "4.1.1", "md", null);
         assertTrue(html.contains("<h2>4.1.1 Classes</h2>"), html);
         assertTrue(html.contains("Chap04/p006.md <a href=\"#\" class=\"edit-link\" data-edit-works=\"books/core/Chap04/p006.md\""), html);
         assertTrue(html.contains("<pre class=\"raw md\">A class is a template.\n\nIt runs on.</pre>"), html);
-        assertTrue(panel().section("core", "4.1").contains("(no text of its own: its subsections hold it)"));
+        assertTrue(panel().section("core", "4.1", "md", null).contains("(no text of its own: its subsections hold it)"));
+        assertTrue(html.contains("<ul class=\"concepts\"><li>class</li><li>instance</li><li>encapsulation</li></ul>"), html);
+        assertTrue(panel().section("core", "4.1", "md", null).contains("(not listed yet)"));
+    }
+
+    @Test
+    void theRstViewShowsTheRuleFileAndItsCodeFiles() {
+        var rules = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules("4.1.1",
+                "(defrule title -> \"4.1.1. Classes\")", java.util.Map.of("b2.txt", "class A {}"), 12);
+        String html = panel().section("core", "4.1.1", "rst", rules);
+        assertTrue(html.contains("class=\"raw-view section-view active\" data-view=\"rst\""), html);
+        assertTrue(html.contains("<pre class=\"raw lisp\">(defrule title -&gt; &quot;4.1.1. Classes&quot;)</pre>"), html);
+        assertTrue(html.contains("<div class=\"raw-path\">b2.txt</div><pre class=\"raw\">class A {}</pre>"), html);
+        assertTrue(panel().section("core", "4.1", "rst", null).contains("(no rule file yet"));
     }
 }
