@@ -34,13 +34,22 @@
       try { localStorage.setItem('frame-viewer-tab', tab); } catch (e) { }
     }
 
-    // Puts a panel fragment in a tab, then scrolls to the paragraph when one is named.
-    function load(tab, url, params, anchor) {
+    // Scrolls a pane so that an element is near its top, and marks it.
+    function reveal($pane, $a) {
+      if (!$a.length) { return; }
+      $pane.find('.focus').removeClass('focus');
+      $a.next().addBack().addClass('focus');
+      $pane.scrollTop($a.position().top + $pane.scrollTop() - 40);
+    }
+
+    // Puts a panel fragment in a tab, then scrolls to the paragraph when one is named. With a full id, the anchor is
+    // that id; otherwise it is a paragraph name, looked up as r-<name>.
+    function load(tab, url, params, anchor, fullId) {
       showTab(tab);
       var $panel = pane(tab).find('.panel');
       $.get(url, params, function (html) {
         $panel.html(html);
-        var $a = anchor ? $panel.find('[id="r-' + anchor + '"]') : $();
+        var $a = anchor ? $panel.find('[id="' + (fullId ? anchor : 'r-' + anchor) + '"]') : $();
         if ($a.length) {
           $panel.find('.focus').removeClass('focus');
           $a.addClass('focus');
@@ -53,13 +62,14 @@
 
     // A concrete frame opens as text in the left pane and its first source file beside it.
     var shownFrame = null, shownSource = null, sourceView = 'lisp', shownView = null;
-    function openFrame(path) {
-      if (path.indexOf('explanation/') === 0) { load('integrated', 'raw-integrated', { path: path }); return; }
+    function openFrame(path, rule) {
+      if (path.indexOf('explanation/') === 0) { load('integrated', 'raw-integrated', { path: path }, rule ? 'F-' + rule : null, true); return; }
       showTab('concrete');
       var $pane = pane('concrete').find('.frame-pane');
       $.get('raw-frame', { path: path }, function (html) {
         $pane.html(html);
         $pane.scrollTop(0);
+        if (rule) { reveal($pane, $pane.find('[id="F-' + rule + '"]')); }
         shownFrame = path;
         shownSource = null;
         var first = $pane.find('.raw-head').attr('data-first-source');
@@ -125,7 +135,7 @@
 
     $('.tab').on('click', function (e) { e.preventDefault(); showTab($(this).attr('data-tab')); });
 
-    $(document).on('click', '.panel a.frame-link', function (e) { e.preventDefault(); openFrame($(this).attr('data-frame')); });
+    $(document).on('click', '.panel a.frame-link', function (e) { e.preventDefault(); openFrame($(this).attr('data-frame'), $(this).attr('data-rule')); });
     $(document).on('click', '.panel a.tag-link', function (e) { e.preventDefault(); openTag($(this).attr('data-tag')); });
 
     var first = 'tags';

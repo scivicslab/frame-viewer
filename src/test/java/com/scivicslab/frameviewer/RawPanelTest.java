@@ -2,6 +2,7 @@ package com.scivicslab.frameviewer;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -87,5 +88,24 @@ class RawPanelTest {
     @Test
     void anotherFramesParagraphsAreNotMarked() {
         assertTrue(!panel().source(FILE, SOURCE, "subject/b/other.lisp").contains("class=\"hit\""));
+    }
+
+    @Test
+    void eachRuleLineIsFollowedByTheRulesItsEdgesJoinItTo() {
+        Library lib = new Library().addFrame("subject/b/design.lisp", FRAME)
+                .addFrame("explanation/explain.lisp", "(defrule p-what -> :nucleus p-what/n)\n");
+        Links links = new Links(List.of(
+                "explanation/explain.lisp\tp-what\tsubject/b/design.lisp\td\tintegrates\n"
+                + "subject/b/design.lisp\td\t" + FILE + "\tp-plan\tmade-from\n"));
+        RawPanel panel = new RawPanel(lib, new Sources(lib, Map.of(FILE, SOURCE)::get), links);
+
+        String concrete = panel.frame("subject/b/design.lisp", FRAME);
+        assertTrue(concrete.contains("<span id=\"F-d\"></span>(defrule d -&gt;"), concrete);
+        assertTrue(concrete.contains("class=\"frame-link edge\" data-frame=\"explanation/explain.lisp\" data-rule=\"p-what\""), concrete);
+        assertTrue(concrete.contains("class=\"raw-rule edge\" data-source=\"" + FILE + "\" data-rule=\"p-plan\""), concrete);
+
+        String integrated = panel.integrated("explanation/explain.lisp", "(defrule p-what -> :nucleus p-what/n)\n");
+        assertTrue(integrated.contains("<span id=\"F-p-what\"></span>(defrule p-what"), integrated);
+        assertTrue(integrated.contains("data-frame=\"subject/b/design.lisp\" data-rule=\"d\""), integrated);
     }
 }

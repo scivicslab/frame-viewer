@@ -71,7 +71,7 @@ public class ViewerResource {
     public String rawFrame(@QueryParam("path") String path) {
         if (path == null || path.isBlank()) return "<p class=\"hint\">No frame given.</p>";
         Library lib = load();
-        return new RawPanel(lib, new Sources(lib, this::readUnderWorks)).frame(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
+        return new RawPanel(lib, new Sources(lib, this::readUnderWorks), links()).frame(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
     }
 
     /** The right pane of the integrated-frame tab: the frame file as it is, with the frames it names linked. */
@@ -81,7 +81,7 @@ public class ViewerResource {
     public String rawIntegrated(@QueryParam("path") String path) {
         if (path == null || path.isBlank()) return "<p class=\"hint\">No frame given.</p>";
         Library lib = load();
-        return new RawPanel(lib, new Sources(lib, this::readUnderWorks)).integrated(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
+        return new RawPanel(lib, new Sources(lib, this::readUnderWorks), links()).integrated(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
     }
 
     /**
@@ -94,10 +94,24 @@ public class ViewerResource {
     public String rawSource(@QueryParam("file") String file, @QueryParam("frame") String frame, @QueryParam("view") String view) {
         if (file == null || file.isBlank()) return "<p class=\"hint\">No source given.</p>";
         Library lib = load();
-        RawPanel panel = new RawPanel(lib, new Sources(lib, this::readUnderWorks));
+        RawPanel panel = new RawPanel(lib, new Sources(lib, this::readUnderWorks), links());
         String f = frame == null ? "" : frame;
         if ("md".equals(view)) return panel.markdown(file, readUnderWorks(Sources.markdownBeside(file)), f);
         return panel.source(file, readUnderWorks(file), f);
+    }
+
+    /** Reads the edge lists, {@code links/**}{@code /*.tsv} beside {@code frames/} ({@code FrameLinks_261022_oo01}). */
+    Links links() {
+        List<String> texts = new java.util.ArrayList<>();
+        Path dir = Path.of(rstOnLispDir).resolve("links");
+        if (Files.isDirectory(dir)) {
+            try (Stream<Path> s = Files.walk(dir)) {
+                for (Path p : s.filter(p -> p.toString().endsWith(".tsv") && Files.isRegularFile(p)).sorted().toList()) texts.add(read(p));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return new Links(texts);
     }
 
     /** Reads {@code subjects/*.lisp} and every {@code .lisp} under {@code frames/}. */

@@ -52,3 +52,5 @@ a.edit-link { font-size: 0.8em; margin-left: 4px; color: #a50; }
 .raw-views a.raw-view:first-child { border-radius: 3px 0 0 3px; }
 .raw-views a.raw-view:last-child { border-radius: 0 3px 3px 0; border-left: none; }
 .raw-views a.raw-view.active { background: #357; color: #fff; border-color: #357; }
+pre.raw .edges a.edge { font-size: 0.85em; color: #7a4; margin-left: 2px; }
+pre.raw .edges a.edge:hover { text-decoration: underline; }

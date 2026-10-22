@@ -32,10 +32,17 @@ public final class RawPanel {
 
     private final Library library;
     private final Sources sources;
+    private final Links links;
 
     public RawPanel(Library library, Sources sources) {
+        this(library, sources, new Links(List.of()));
+    }
+
+    /** @param links the library's edge lists; each rule line of a frame is followed by the rules its edges join it to */
+    public RawPanel(Library library, Sources sources, Links links) {
         this.library = library;
         this.sources = sources;
+        this.links = links;
     }
 
     /** The frame pane: links to its tag, top frame and integrated frames, then its text. The head names the first source file. */
@@ -65,7 +72,7 @@ public final class RawPanel {
             if (k.lookingAt()) key = k.group(1);
             else if (!line.startsWith(";;;   ")) key = null;
             if (key != null && NAMING.contains(key)) linkRules(path, line, sb);
-            else sb.append(esc(line));
+            else ruleLine(path, line, sb);
             sb.append("\n");
         }
         sb.append("</pre>");
@@ -85,6 +92,8 @@ public final class RawPanel {
         sb.append("</div><pre class=\"raw\">");
         String dir = Html.dirOf(path);
         for (String line : text.split("\n", -1)) {
+            Matcher anchor = DEFRULE.matcher(line);
+            if (anchor.find()) sb.append("<span id=\"F-").append(esc(anchor.group(1))).append("\"></span>");
             Matcher m = LISP_FILE.matcher(line);
             int at = 0;
             while (m.find()) {
@@ -94,10 +103,49 @@ public final class RawPanel {
                 sb.append("<a href=\"#\" class=\"frame-link\" data-frame=\"").append(esc(target)).append("\">").append(esc(m.group())).append("</a>");
                 at = m.end();
             }
-            sb.append(esc(line.substring(at))).append("\n");
+            sb.append(esc(line.substring(at)));
+            Matcher d = DEFRULE.matcher(line);
+            if (d.find()) edges(path, d.group(1), sb);
+            sb.append("\n");
         }
         sb.append("</pre>");
         return sb.toString();
+    }
+
+    /** A line of a frame: a rule line gets an anchor, and is followed by the rules its edges join it to. */
+    private void ruleLine(String path, String line, StringBuilder sb) {
+        Matcher d = DEFRULE.matcher(line);
+        if (!d.find()) {
+            sb.append(esc(line));
+            return;
+        }
+        sb.append("<span id=\"F-").append(esc(d.group(1))).append("\"></span>").append(esc(line));
+        edges(path, d.group(1), sb);
+    }
+
+    /**
+     * The edges at one rule, after its line: a frame's rule opens that frame at that rule, a book paragraph brings that
+     * paragraph into view in the source pane.
+     */
+    private void edges(String path, String rule, StringBuilder sb) {
+        List<Links.Edge> es = links.of(path, rule);
+        if (es.isEmpty()) return;
+        sb.append(" <span class=\"edges\">");
+        for (Links.Edge e : es) {
+            // a book's file name is long and says little; the tooltip carries it
+            String label = e.file().startsWith("doc_") ? "book " + e.rule() : e.file().substring(e.file().lastIndexOf('/') + 1) + " " + e.rule();
+            String arrow = "made-from".equals(e.kind()) ? "⇢ " : e.file().startsWith("explanation/") ? "⇠ " : "⇢ ";
+            if (e.file().startsWith("doc_")) {
+                sb.append("<a href=\"#\" class=\"raw-rule edge\" data-source=\"").append(esc(e.file())).append("\" data-rule=\"")
+                        .append(esc(e.rule())).append("\" title=\"").append(esc(e.kind() + ": " + e.file())).append("\">")
+                        .append(arrow).append(esc(label)).append("</a> ");
+            } else {
+                sb.append("<a href=\"#\" class=\"frame-link edge\" data-frame=\"").append(esc(e.file())).append("\" data-rule=\"")
+                        .append(esc(e.rule())).append("\" title=\"").append(esc(e.kind() + ": " + e.file())).append("\">")
+                        .append(arrow).append(esc(label)).append("</a> ");
+            }
+        }
+        sb.append("</span>");
     }
 
     /**
