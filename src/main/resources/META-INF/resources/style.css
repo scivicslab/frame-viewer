@@ -63,14 +63,15 @@ pre.raw .edges a.edge:hover { text-decoration: underline; }
 .wf-table { border-collapse: collapse; font-size: 0.88em; margin: 4px 0 10px; }
 .wf-table th, .wf-table td { border: 1px solid #e3e3e3; padding: 3px 6px; vertical-align: top; text-align: left; }
 .wf-table th { background: #f4f4f4; }
-table.concepts { border-collapse: collapse; font-size: 0.9em; margin: 4px 0 10px; width: 100%; }
+/* a fixed width: the columns keep their share, and a long rule wraps inside its cell instead of widening the table */
+table.concepts { border-collapse: collapse; font-size: 0.9em; margin: 4px 0 10px; width: 100%; max-width: 72em; table-layout: fixed; }
 table.concepts th, table.concepts td { border: 1px solid #e3e3e3; padding: 3px 6px; vertical-align: top; text-align: left; }
 table.concepts th { background: #f4f4f4; }
-table.concepts td.concept { width: 28%; }
+table.concepts td.concept, table.concepts th:first-child { width: 26%; overflow-wrap: anywhere; }
 table.concepts tr.dropped td.concept { text-decoration: line-through; color: #999; }
 table.concepts .rule-line { margin: 1px 0; }
 table.concepts .rule-line code { color: #777; font-size: 0.85em; }
-table.concepts pre.rule-code { margin: 2px 0; font-size: 0.85em; white-space: pre-wrap; }
+table.concepts pre.rule-code { margin: 2px 0; font-size: 0.85em; white-space: pre-wrap; overflow-wrap: anywhere; }
 .relation h4 { margin: 8px 0 2px; font-size: 0.92em; color: #357; }
 .relation-parent { margin: 2px 0 0; }
 ul.relation-children { margin: 0 0 4px; padding-left: 22px; }
@@ -83,5 +84,5 @@ ul.frame-rules { margin: 0 0 4px; padding-left: 26px; }
 ul.frame-rules code { color: #777; font-size: 0.85em; }
 .frame-off li.dropped { text-decoration: line-through; color: #999; }
 .frame-folded { font-size: 0.85em; color: #777; margin: 0 0 2px 8px; }
-pre.rule-lisp { margin: 1px 0; font-size: 0.85em; white-space: pre-wrap; background: #fafafa; padding: 1px 4px; }
+pre.rule-lisp { margin: 1px 0; font-size: 0.85em; white-space: pre-wrap; overflow-wrap: anywhere; background: #fafafa; padding: 1px 4px; max-width: 72em; }
 ul.frame-rules { list-style: none; }
