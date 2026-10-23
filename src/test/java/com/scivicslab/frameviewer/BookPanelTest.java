@@ -46,6 +46,16 @@ class BookPanelTest {
     }
 
     @Test
+    void theSectionsListSaysHowEachAskedSectionExplainsItsMainConcept() {
+        BookPanel p = new BookPanel(List.of(new BookPanel.Book("core", "/w/books/core",
+                List.of(new BookOutline.Node("3.2", "section", "Comments", null, "f.md")),
+                List.of(new BookSections.Section("3.2", "x", List.of("f.md"))), java.util.Set.of(), java.util.Map.of(), java.util.Map.of(),
+                java.util.Map.of(), java.util.Map.of("3.2", new com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout("comment", "partition",
+                        List.of())))), "/w");
+        assertTrue(p.sectionsTree().get(1).text().endsWith(" · partition of comment"), p.sectionsTree().get(1).text());
+    }
+
+    @Test
     void aNodeShowsWhereItStandsWhatIsUnderItAndItsText() {
         String html = panel().node("core", "4.1");
         assertTrue(html.contains("<h2>4.1 Introduction</h2>"), html);

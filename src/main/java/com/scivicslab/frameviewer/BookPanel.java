@@ -18,12 +18,21 @@ public final class BookPanel {
     /**
      * One book as the database holds it: its name, its directory, its table of contents, its sections, which sections
      * have a rule file, the concepts each section explains, how those concepts relate (steps 6 and 7), and the
-     * material of each section's concrete frame.
+     * material of each section's concrete frame, and how each section explains its main concept.
      */
     public record Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections,
             java.util.Set<String> withRules, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept>> concepts,
             Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> relations,
-            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept>> frame) {
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept>> frame,
+            Map<String, com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout> patterns) {
+
+        /** A book whose sections have not been asked how they explain their main concept. */
+        public Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections, java.util.Set<String> withRules,
+                Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept>> concepts,
+                Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> relations,
+                Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept>> frame) {
+            this(name, dir, outline, sections, withRules, concepts, relations, frame, Map.of());
+        }
 
         /** A book with no concrete-frame material yet. */
         public Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections, java.util.Set<String> withRules,
@@ -70,7 +79,9 @@ public final class BookPanel {
                 String text = s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")
                         + (b.withRules().contains(s.number()) ? " · rst" : "")
                         + (b.concepts().containsKey(s.number()) ? " · " + conceptCount(b.concepts().get(s.number())) : "")
-                        + (b.relations().containsKey(s.number()) ? " · " + b.relations().get(s.number()).size() + " relations" : "");
+                        + (b.relations().containsKey(s.number()) ? " · " + b.relations().get(s.number()).size() + " relations" : "")
+                        + (b.patterns().containsKey(s.number()) ? " · " + b.patterns().get(s.number()).pattern() + " of "
+                                + b.patterns().get(s.number()).concept() : "");
                 out.add(new Library.TreeNode("s:" + b.name() + "|" + s.number(), root, text, Map.of("data-book", b.name(), "data-section", s.number())));
             }
         }
