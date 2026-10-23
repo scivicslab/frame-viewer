@@ -13,6 +13,7 @@
       <a href="#" class="tab" data-tab="workflows" title="0. the frame-making workflows">Workflows</a>
       <a href="#" class="tab" data-tab="contents" title="1-1. a book's table of contents">Contents</a>
       <a href="#" class="tab" data-tab="sections" title="1-2. a book's text cut into its sections">Sections</a>
+      <a href="#" class="tab" data-tab="bookframes" title="the concepts of a book across its sections, and the generalized concepts above them">Book frames</a>
       <a href="#" class="tab" data-tab="integrated">Integrated frames</a>
       <a href="#" class="tab" data-tab="classes">Classes</a>
     </span>
@@ -25,6 +26,7 @@
     <div class="pane source-pane"></div></div></div>
   <div class="layout" data-tab="contents"><div class="tree"></div><div class="panel"><p class="hint">Select a node of a book's table of contents, as book-toc.yaml read it.</p></div></div>
   <div class="layout" data-tab="sections"><div class="tree"></div><div class="panel"><p class="hint">Select a section to read its text, as book-sections.yaml cut it.</p></div></div>
+  <div class="layout" data-tab="bookframes"><div class="tree"></div><div class="panel"><p class="hint">Select a concept of a book: its frame (the questions an explanation of it answers, each with the rules that answer it) and its frame material from every section it appears in.</p></div></div>
   <div class="layout" data-tab="workflows"><div class="tree"></div><div class="panel"><p class="hint">Select a workflow. They are numbered in the order they run to make frames from a book.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
   <script src="vendor/jstree/jstree.min.js"></script>
@@ -102,6 +104,7 @@
       $tree.on('select_node.jstree', function (e, data) {
         var a = data.node.li_attr || {};
         if (a['data-workflow']) { load('workflows', 'workflow', { name: a['data-workflow'] }); }
+        else if (a['data-entity']) { load('bookframes', 'book-entity', { book: a['data-book'], id: a['data-entity'] }); }
         else if (a['data-section']) { load('sections', 'book-section', { book: a['data-book'], number: a['data-section'] }); }
         else if (a['data-node']) { load('contents', 'book-node', { book: a['data-book'], number: a['data-node'] }); }
         else if (a['data-class']) { openClass(a['data-set'] || '', a['data-class']); }
@@ -144,6 +147,7 @@
       e.preventDefault();
       load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section'), view: $(this).attr('data-view') });
     });
+    $(document).on('click', '.panel a.entity-link', function (e) { e.preventDefault(); load('bookframes', 'book-entity', { book: $(this).attr('data-book'), id: $(this).attr('data-entity') }); });
     $(document).on('click', '.panel a.section-link', function (e) { e.preventDefault(); load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section') }); });
     $(document).on('click', '.panel a.class-link', function (e) { e.preventDefault(); openClass($(this).attr('data-set'), $(this).attr('data-class')); });
     var first = 'workflows';
