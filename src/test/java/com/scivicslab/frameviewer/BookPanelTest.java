@@ -89,5 +89,24 @@ class BookPanelTest {
         assertTrue(html.contains("<h4>feature</h4><div class=\"relation-parent\">Object class"), html);
         assertTrue(html.indexOf("is-a relation") < html.indexOf("part-of relation") && html.indexOf("part-of relation") < html.indexOf("<h4>feature"),
                 "in the order is-a, part-of, feature");
+        assertTrue(!html.contains("related to nothing"), "every kept concept here is in a relation");
+    }
+
+    /** A kept concept no relation names is a candidate for dropping; a concept step 5 dropped is not listed again. */
+    @Test
+    void aKeptConceptNoRelationNamesIsListedAsACandidateForDropping() {
+        var c = java.util.Map.of("4.1.1", List.of(
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("class", true, "in the title"),
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("instance", true, "in a nucleus"),
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("JavaScript", true, "in a nucleus (sentences 22)"),
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("Object class", false, "only in comment")));
+        var r = java.util.Map.of("4.1.1", List.of(
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation("is-a", "instance", "class", List.of(2))));
+        BookPanel p = new BookPanel(List.of(new BookPanel.Book("core", "/w/books/core",
+                List.of(new BookOutline.Node("4.1.1", "subsection", "Classes", null, "a.md")),
+                List.of(new BookSections.Section("4.1.1", "A class.", List.of("a.md"))), java.util.Set.of(), c, r)), "/w");
+        String html = p.section("core", "4.1.1", "md", null);
+        assertTrue(html.contains("<h4>related to nothing (candidates for dropping)</h4><ul class=\"relation-children\">"
+                + "<li>JavaScript <span class=\"hint\">(in a nucleus (sentences 22))</span></li></ul>"), html);
     }
 }
