@@ -120,7 +120,8 @@ class BookPanelTest {
                 new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("Java", true, "in a nucleus")));
         var r = java.util.Map.of("10.1.1", List.of(
                 new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation("part-of", "multithreading", "concurrent programming", List.of(1), "is-a"),
-                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation("feature", "Java", "concurrent programming", List.of(5), "drop")));
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation("feature", "Java", "concurrent programming", List.of(5), "drop"),
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation("feature", "threads", "concurrent programming", List.of(6), "other")));
         BookPanel p = new BookPanel(List.of(new BookPanel.Book("core", "/w/books/core",
                 List.of(new BookOutline.Node("10.1.1", "subsection", "Threads", null, "a.md")),
                 List.of(new BookSections.Section("10.1.1", "Threads.", List.of("a.md"))), java.util.Set.of(), c, r)), "/w");
@@ -128,6 +129,8 @@ class BookPanelTest {
         assertTrue(html.contains("<h4>is-a relation</h4><div class=\"relation-parent\">concurrent programming <span class=\"hint\">(in a nucleus)</span></div>"
                 + "<ul class=\"relation-children\"><li>multithreading <span class=\"hint\">(in a nucleus)</span> <span class=\"review\">[was part-of]</span></li></ul>"), html);
         assertTrue(!html.contains("<h4>part-of relation</h4>") && !html.contains("<h4>feature</h4>"), html);
+        assertTrue(html.contains("<h4>other relation</h4><div class=\"relation-parent\">concurrent programming"), html);
+        assertTrue(html.contains("<li>threads <span class=\"review\">[was feature]</span></li>"), html);
         assertTrue(html.contains("<h4>dropped by the review</h4><ul class=\"relation-children\"><li class=\"dropped\">Java feature concurrent programming</li></ul>"), html);
         assertTrue(html.contains("<h4>related to nothing (candidates for dropping)</h4><ul class=\"relation-children\"><li>Java"), html);
     }

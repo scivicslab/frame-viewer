@@ -200,6 +200,7 @@ public final class BookPanel {
         RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.IS_A, "is-a relation");
         RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.PART_OF, "part-of relation");
         RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.FEATURE, "feature");
+        RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.OTHER, "other relation");
     }
 
     /**
