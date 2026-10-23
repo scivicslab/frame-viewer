@@ -83,7 +83,7 @@ class BookPanelTest {
     void theRelationsAreShownByKindWithEachParentOverItsChildren() {
         String html = panel().section("core", "4.1.1", "md", null);
         assertTrue(html.contains("<h3>How they relate</h3>"), html);
-        assertTrue(html.contains("<div class=\"relation\"><h4>is-a relation</h4><div class=\"relation-parent\">class <span class=\"hint\">(in the title)</span></div>"
+        assertTrue(html.contains("<div class=\"concept-relation\"><h4>is-a relation</h4><div class=\"relation-parent\">class <span class=\"hint\">(in the title)</span></div>"
                 + "<ul class=\"relation-children\"><li>instance</li></ul></div>"), html);
         assertTrue(html.contains("<h4>part-of relation</h4><div class=\"relation-parent\">class <span class=\"hint\">(in the title)</span></div>"
                 + "<ul class=\"relation-children\"><li>Object class <span class=\"hint\">(only in comment)</span></li></ul>"), html);

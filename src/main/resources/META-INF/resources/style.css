@@ -24,7 +24,7 @@ dl.source dd { margin-left: 16px; }
 .tab.active { background: #357; color: #fff; border-color: #357; }
 .layout { display: none; height: calc(100vh - 42px); }
 .layout .tree { width: 34%; overflow: auto; border-right: 1px solid #ddd; padding: 8px; }
-.layout .panel { flex: 1; overflow: auto; padding: 8px 20px; position: relative; }
+.layout .panel { flex: 1; overflow: auto; padding: 8px 20px; position: relative; font-size: 1.1em; }
 .para { margin: 8px 0; padding: 4px 6px; border-left: 3px solid #eee; }
 .para .text { margin-top: 2px; }
 .para.focus, .section-head.focus { background: #ffd; border-left-color: #d90; }
@@ -38,7 +38,7 @@ dl.source dd { margin-left: 16px; }
 .layout .panel.split { display: flex; padding: 0; overflow: hidden; }
 .split .pane { flex: 1; overflow: auto; padding: 8px 12px; position: relative; min-width: 0; }
 .split .frame-pane { border-right: 1px solid #ddd; }
-pre.raw { font-size: 0.82em; line-height: 1.35; white-space: pre-wrap; word-break: break-word; margin: 6px 0; }
+pre.raw { font-size: 0.92em; line-height: 1.35; white-space: pre-wrap; word-break: break-word; margin: 6px 0; }
 pre.raw .hit { background: #e6f4e6; }
 .raw-head { font-size: 0.85em; padding-bottom: 4px; border-bottom: 1px solid #eee; }
 .source-head { position: sticky; top: -8px; background: #fff; padding-top: 4px; z-index: 1; }
@@ -64,25 +64,25 @@ pre.raw .edges a.edge:hover { text-decoration: underline; }
 .wf-table th, .wf-table td { border: 1px solid #e3e3e3; padding: 3px 6px; vertical-align: top; text-align: left; }
 .wf-table th { background: #f4f4f4; }
 /* a fixed width: the columns keep their share, and a long rule wraps inside its cell instead of widening the table */
-table.concepts { border-collapse: collapse; font-size: 0.9em; margin: 4px 0 10px; width: 100%; max-width: 72em; table-layout: fixed; }
+table.concepts { border-collapse: collapse; font-size: 1em; margin: 4px 0 10px; width: 100%; max-width: 72em; table-layout: fixed; }
 table.concepts th, table.concepts td { border: 1px solid #e3e3e3; padding: 3px 6px; vertical-align: top; text-align: left; }
 table.concepts th { background: #f4f4f4; }
 table.concepts td.concept, table.concepts th:first-child { width: 26%; overflow-wrap: anywhere; }
 table.concepts tr.dropped td.concept { text-decoration: line-through; color: #999; }
 table.concepts .rule-line { margin: 1px 0; }
 table.concepts .rule-line code { color: #777; font-size: 0.85em; }
-table.concepts pre.rule-code { margin: 2px 0; font-size: 0.85em; white-space: pre-wrap; overflow-wrap: anywhere; }
-.relation h4 { margin: 8px 0 2px; font-size: 0.92em; color: #357; }
+table.concepts pre.rule-code { margin: 2px 0; font-size: 0.95em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.concept-relation h4 { margin: 8px 0 2px; font-size: 1em; color: #357; }
 .relation-parent { margin: 2px 0 0; }
 ul.relation-children { margin: 0 0 4px; padding-left: 22px; }
-.relation.unrelated h4 { color: #a60; }
-.relation .review { color: #a60; font-size: 0.85em; }
+.concept-relation.unrelated h4 { color: #a60; }
+.concept-relation .review { color: #a60; font-size: 0.9em; }
 .dropped-by-review li.dropped { text-decoration: line-through; color: #999; }
-.frame-concept h4 { margin: 10px 0 2px; font-size: 0.95em; }
-.frame-kind { font-size: 0.85em; color: #357; margin: 2px 0 0 8px; }
+.frame-concept h4 { margin: 10px 0 2px; font-size: 1em; }
+.frame-kind { font-size: 0.92em; color: #357; margin: 2px 0 0 8px; }
 ul.frame-rules { margin: 0 0 4px; padding-left: 26px; }
 ul.frame-rules code { color: #777; font-size: 0.85em; }
 .frame-off li.dropped { text-decoration: line-through; color: #999; }
-.frame-folded { font-size: 0.85em; color: #777; margin: 0 0 2px 8px; }
-pre.rule-lisp { margin: 1px 0; font-size: 0.85em; white-space: pre-wrap; overflow-wrap: anywhere; background: #fafafa; padding: 1px 4px; max-width: 72em; }
+.frame-folded { font-size: 0.92em; color: #777; margin: 0 0 2px 8px; }
+pre.rule-lisp { margin: 1px 0; font-size: 0.95em; white-space: pre-wrap; overflow-wrap: anywhere; background: #fafafa; padding: 1px 4px; max-width: 72em; }
 ul.frame-rules { list-style: none; }

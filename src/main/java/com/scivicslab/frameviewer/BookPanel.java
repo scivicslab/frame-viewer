@@ -242,7 +242,7 @@ public final class BookPanel {
             Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> byParent = new LinkedHashMap<>();
             for (var r : standing) if (r.kind().equals(kind.getKey())) byParent.computeIfAbsent(r.parent(), k -> new ArrayList<>()).add(r);
             if (byParent.isEmpty()) continue;
-            sb.append("<div class=\"relation\"><h4>").append(Html.esc(kind.getValue())).append("</h4>");
+            sb.append("<div class=\"concept-relation\"><h4>").append(Html.esc(kind.getValue())).append("</h4>");
             for (var e : byParent.entrySet()) {
                 sb.append("<div class=\"relation-parent\">").append(conceptWithWhy(e.getKey(), why)).append("</div><ul class=\"relation-children\">");
                 for (var child : e.getValue()) {
@@ -255,7 +255,7 @@ public final class BookPanel {
             sb.append("</div>");
         }
         if (!dropped.isEmpty()) {
-            sb.append("<div class=\"relation dropped-by-review\"><h4>dropped by the review</h4><ul class=\"relation-children\">");
+            sb.append("<div class=\"concept-relation dropped-by-review\"><h4>dropped by the review</h4><ul class=\"relation-children\">");
             for (var r : dropped) {
                 sb.append("<li class=\"dropped\">").append(Html.esc(r.child() + " " + r.kind() + " " + r.parent())).append("</li>");
             }
@@ -270,7 +270,7 @@ public final class BookPanel {
         List<String> alone = new ArrayList<>();
         if (concepts != null) for (var c : concepts) if (!Boolean.FALSE.equals(c.kept()) && !related.contains(c.concept())) alone.add(c.concept());
         if (!alone.isEmpty()) {
-            sb.append("<div class=\"relation unrelated\"><h4>related to nothing (candidates for dropping)</h4><ul class=\"relation-children\">");
+            sb.append("<div class=\"concept-relation unrelated\"><h4>related to nothing (candidates for dropping)</h4><ul class=\"relation-children\">");
             for (String c : alone) sb.append("<li>").append(conceptWithWhy(c, why)).append("</li>");
             sb.append("</ul></div>");
         }
