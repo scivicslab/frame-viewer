@@ -131,7 +131,7 @@ public final class BookPanel {
     /**
      * As {@link #section(String, String, String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules, List)},
      * first saying how the section explains its main concept: by a sequence of steps, by its structure, or by a
-     * partition into kinds, with the blocks that are its steps, parts or kinds.
+     * partition into kinds, or by one aspect after another, with the blocks that are its steps, parts, kinds or aspects.
      *
      * @param pattern how the section explains its main concept, or {@code null} when it has not been asked
      */
@@ -213,9 +213,10 @@ public final class BookPanel {
     private static final Map<String, String[]> PATTERNS = Map.of(
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.SEQUENCE, new String[] {"the blocks go through its steps in order", "step"},
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.STRUCTURE, new String[] {"the blocks take it apart into its parts", "part"},
-            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.PARTITION, new String[] {"the blocks divide it into its kinds", "kind"});
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.PARTITION, new String[] {"the blocks divide it into its kinds", "kind"},
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.ASPECTS, new String[] {"the blocks take up one aspect of it after another", "aspect"});
 
-    /** How the section explains its main concept: the pattern, the heading rule, and each block that is a step, part or kind. */
+    /** How the section explains its main concept: the pattern, the heading rule, and each block that is a step, part, kind or aspect. */
     private static void pattern(com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout p,
             com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules, StringBuilder sb) {
         String[] says = PATTERNS.getOrDefault(p.pattern(), new String[] {"", "member"});
