@@ -168,8 +168,8 @@ public final class BookPanel {
 
     /**
      * How the section's concepts relate (step 6): for each kind, each parent concept with the ones that are kinds of
-     * it, parts of it, or features of it under it, each with the reason step 5 kept it; then the kept concepts no
-     * relation names, the candidates for dropping.
+     * it, parts of it, or features of it under it, each with the reason step 5 kept it, as step 7's review left them;
+     * the relations the review dropped; then the kept concepts no standing relation names, the candidates for dropping.
      */
     private static void relations(Book b, String number, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept> concepts,
             StringBuilder sb) {
@@ -182,21 +182,49 @@ public final class BookPanel {
         if (concepts != null) for (var c : concepts) why.put(c.concept(), c.reason());
         sb.append("<h3>How they relate</h3>");
         if (rel.isEmpty()) sb.append("<p class=\"hint\">(none found)</p>");
+        // as step 7's review left them: a kind changed or a direction reversed says so; a dropped one is listed last
+        List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation> standing = new ArrayList<>();
+        List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation> dropped = new ArrayList<>();
+        Map<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation, String> was = new java.util.HashMap<>();
+        for (var r : rel) {
+            var after = r.reviewed();
+            if (after == null) {
+                dropped.add(r);
+                continue;
+            }
+            standing.add(after);
+            if (com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.REVERSE.equals(r.review())) {
+                was.put(after, "reversed by the review");
+            } else if (!after.kind().equals(r.kind())) {
+                was.put(after, "was " + r.kind());
+            }
+        }
         for (var kind : RELATION_HEADINGS.entrySet()) {
-            Map<String, List<String>> byParent = new LinkedHashMap<>();
-            for (var r : rel) if (r.kind().equals(kind.getKey())) byParent.computeIfAbsent(r.parent(), k -> new ArrayList<>()).add(r.child());
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> byParent = new LinkedHashMap<>();
+            for (var r : standing) if (r.kind().equals(kind.getKey())) byParent.computeIfAbsent(r.parent(), k -> new ArrayList<>()).add(r);
             if (byParent.isEmpty()) continue;
             sb.append("<div class=\"relation\"><h4>").append(Html.esc(kind.getValue())).append("</h4>");
             for (var e : byParent.entrySet()) {
                 sb.append("<div class=\"relation-parent\">").append(conceptWithWhy(e.getKey(), why)).append("</div><ul class=\"relation-children\">");
-                for (String child : e.getValue()) sb.append("<li>").append(conceptWithWhy(child, why)).append("</li>");
+                for (var child : e.getValue()) {
+                    sb.append("<li>").append(conceptWithWhy(child.child(), why));
+                    if (was.containsKey(child)) sb.append(" <span class=\"review\">[").append(Html.esc(was.get(child))).append("]</span>");
+                    sb.append("</li>");
+                }
                 sb.append("</ul>");
             }
             sb.append("</div>");
         }
+        if (!dropped.isEmpty()) {
+            sb.append("<div class=\"relation dropped-by-review\"><h4>dropped by the review</h4><ul class=\"relation-children\">");
+            for (var r : dropped) {
+                sb.append("<li class=\"dropped\">").append(Html.esc(r.child() + " " + r.kind() + " " + r.parent())).append("</li>");
+            }
+            sb.append("</ul></div>");
+        }
         // the concepts step 5 kept that no relation names: the candidates for dropping, which a person decides on
         java.util.Set<String> related = new java.util.HashSet<>();
-        for (var r : rel) {
+        for (var r : standing) {
             related.add(r.child());
             related.add(r.parent());
         }
