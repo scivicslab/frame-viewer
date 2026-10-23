@@ -200,6 +200,7 @@ public final class BookPanel {
         RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.IS_A, "is-a relation");
         RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.PART_OF, "part-of relation");
         RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.FEATURE, "feature");
+        RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.OPERATION, "operation");
         RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.OTHER, "other relation");
     }
 
@@ -290,7 +291,7 @@ public final class BookPanel {
             }
             sb.append("<div class=\"frame-concept\"><h4>").append(Html.esc(c.concept())).append("</h4>");
             if (c.folded() != null && !c.folded().isEmpty()) {
-                sb.append("<div class=\"frame-folded\">with its features and parts: ").append(Html.esc(String.join(", ", c.folded()))).append("</div>");
+                sb.append("<div class=\"frame-folded\">with its features, parts and operations: ").append(Html.esc(String.join(", ", c.folded()))).append("</div>");
             }
             for (String kind : List.of(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule.PROPERTY,
                     com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule.BEHAVIOR)) {

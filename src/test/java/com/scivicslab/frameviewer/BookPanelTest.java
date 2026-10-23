@@ -150,7 +150,7 @@ class BookPanelTest {
                 List.of(new BookSections.Section("3.6", "Strings.", List.of("a.md"))), java.util.Set.of(), java.util.Map.of(), java.util.Map.of(), fr)), "/w");
         String html = p.section("core", "3.6", "md", null);
         assertTrue(html.contains("<h3>Concrete frame material</h3><div class=\"frame-concept\"><h4>String</h4>"
-                + "<div class=\"frame-folded\">with its features and parts: String.length, String.charAt</div><div class=\"frame-kind\">properties</div>"
+                + "<div class=\"frame-folded\">with its features, parts and operations: String.length, String.charAt</div><div class=\"frame-kind\">properties</div>"
                 + "<ul class=\"frame-rules\"><li><code>p1/1</code> A string is a sequence of Unicode characters.</li></ul>"
                 + "<div class=\"frame-kind\">behaviors</div><ul class=\"frame-rules\"><li><code>p2/1</code> The substring method extracts a part.</li></ul></div>"), html);
         assertTrue(html.contains("<li class=\"dropped\">String literal <span class=\"hint\">(1 rule)</span></li>"), html);
