@@ -84,15 +84,17 @@ public class ViewerResource {
         // the rule file and the concepts' sentences: the concepts are shown with their rules beside them
         com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules = null;
         List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed = null;
+        com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern = null;
         if (Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) {
             try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
                 rules = store.sectionRules(book, number);
                 listed = store.listedConcepts(book).get(number);
+                pattern = store.patterns(book).get(number);
             } catch (java.sql.SQLException e) {
                 throw new IllegalStateException("could not read " + booksDb + ": " + e.getMessage(), e);
             }
         }
-        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed);
+        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern);
     }
 
     private String booksUrl() {

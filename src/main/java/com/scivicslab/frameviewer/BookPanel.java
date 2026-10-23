@@ -125,6 +125,19 @@ public final class BookPanel {
      */
     public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
             List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed) {
+        return section(book, number, view, rules, listed, null);
+    }
+
+    /**
+     * As {@link #section(String, String, String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules, List)},
+     * first saying how the section explains its main concept: by a sequence of steps, by its structure, or by a
+     * partition into kinds, with the blocks that are its steps, parts or kinds.
+     *
+     * @param pattern how the section explains its main concept, or {@code null} when it has not been asked
+     */
+    public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
+            List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed,
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern) {
         Book b = books.get(book);
         if (b == null) return "<p class=\"hint\">No book " + Html.esc(book) + " in the database.</p>";
         BookSections.Section s = b.sections().stream().filter(x -> x.number().equals(number)).findFirst().orElse(null);
@@ -141,6 +154,7 @@ public final class BookPanel {
             if (abs.startsWith(worksDir)) sb.append(' ').append(Html.editWorksLink(abs.substring(worksDir.length())));
             sb.append("</div>");
         }
+        if (pattern != null) pattern(pattern, rules, sb);
         sb.append("<h3>The concepts it explains</h3>");
         var concepts = b.concepts().get(number);
         if (concepts == null) sb.append("<p class=\"hint\">(not listed yet)</p>");
@@ -193,6 +207,38 @@ public final class BookPanel {
             }
         }
         return sb.toString();
+    }
+
+    /** What each pattern says of the blocks, and what each block it names is. */
+    private static final Map<String, String[]> PATTERNS = Map.of(
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.SEQUENCE, new String[] {"the blocks go through its steps in order", "step"},
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.STRUCTURE, new String[] {"the blocks take it apart into its parts", "part"},
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.PARTITION, new String[] {"the blocks divide it into its kinds", "kind"});
+
+    /** How the section explains its main concept: the pattern, the heading rule, and each block that is a step, part or kind. */
+    private static void pattern(com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout p,
+            com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules, StringBuilder sb) {
+        String[] says = PATTERNS.getOrDefault(p.pattern(), new String[] {"", "member"});
+        sb.append("<h3>How it explains ").append(Html.esc(p.concept())).append("</h3>");
+        sb.append("<p class=\"section-pattern\"><b>").append(Html.esc(p.pattern())).append("</b>: ").append(Html.esc(says[0])).append("</p>");
+        if (rules != null) {
+            for (var r : com.scivicslab.turingworkflow.plugins.rstframe.RuleFile.parse(rules.rules()).rules()) {
+                if (r.attr(":heading") != null) {
+                    sb.append(ruleForm(rules.rules(), r.name(), ""));
+                    break;
+                }
+            }
+        }
+        if (p.members().isEmpty()) {
+            sb.append("<p class=\"hint\">(no block named as a ").append(says[1]).append(")</p>");
+            return;
+        }
+        sb.append("<table class=\"concepts pattern\"><tr><th>block</th><th>the ").append(says[1]).append(" of ").append(Html.esc(p.concept()))
+          .append(" it explains</th></tr>");
+        for (var m : p.members()) {
+            sb.append("<tr><td class=\"concept\">").append(Html.esc(m.block())).append("</td><td>").append(Html.esc(m.name())).append("</td></tr>");
+        }
+        sb.append("</table>");
     }
 
     /** The headings of step 6's three kinds of relation, in the order they are shown. */
