@@ -113,6 +113,18 @@ public final class BookPanel {
      * @param rules the section's rule file, or {@code null} when it has none yet
      */
     public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules) {
+        return section(book, number, view, rules, null);
+    }
+
+    /**
+     * As {@link #section(String, String, String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules)},
+     * with the sentences step 4 said explain each concept: the concepts are a table, each with the rst-on-lisp rules of
+     * those sentences beside it.
+     *
+     * @param listed the section's concepts with their sentence numbers, or {@code null} to show the concepts alone
+     */
+    public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
+            List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed) {
         Book b = books.get(book);
         if (b == null) return "<p class=\"hint\">No book " + Html.esc(book) + " in the database.</p>";
         BookSections.Section s = b.sections().stream().filter(x -> x.number().equals(number)).findFirst().orElse(null);
@@ -134,15 +146,29 @@ public final class BookPanel {
         if (concepts == null) sb.append("<p class=\"hint\">(not listed yet)</p>");
         else if (concepts.isEmpty()) sb.append("<p class=\"hint\">(none)</p>");
         else {
-            // step 4 listed them; step 5 kept or dropped each, by the role of the sentences that name it
-            sb.append("<ul class=\"concepts\">");
+            // step 4 listed them, each with the sentences that explain it; step 5 kept or dropped each, by those sentences' roles.
+            // Beside each concept, the rst-on-lisp rules of its sentences, as the section's rule file (step 3) holds them.
+            Map<String, List<Integer>> at = new java.util.HashMap<>();
+            if (listed != null) for (var l : listed) if (l.sentences() != null) at.put(l.concept(), l.sentences());
+            List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptImportance.Unit> units = rules == null ? List.of()
+                    : com.scivicslab.turingworkflow.plugins.rstframe.ConceptImportance.units(rules.rules(), rules.code());
+            sb.append("<table class=\"concepts\"><tr><th>concept</th><th>its rst-on-lisp rules</th></tr>");
             for (var c : concepts) {
                 boolean dropped = Boolean.FALSE.equals(c.kept());
-                sb.append("<li").append(dropped ? " class=\"dropped\"" : "").append(">").append(Html.esc(c.concept()));
+                sb.append("<tr").append(dropped ? " class=\"dropped\"" : "").append("><td class=\"concept\">").append(Html.esc(c.concept()));
                 if (c.reason() != null) sb.append(" <span class=\"hint\">(").append(Html.esc(c.reason())).append(")</span>");
-                sb.append("</li>");
+                sb.append("</td><td class=\"rules\">");
+                for (int k : at.getOrDefault(c.concept(), List.of())) {
+                    if (k < 1 || k > units.size()) continue;
+                    var u = units.get(k - 1);
+                    String text = u.text().strip();
+                    if (text.length() > 400) text = text.substring(0, 400) + " ...";
+                    sb.append("<div class=\"rule-line\"><code>").append(Html.esc(u.rule() == null ? "[" + k + "]" : u.rule())).append("</code> ")
+                      .append(u.role().equals("code") ? "<pre class=\"rule-code\">" + Html.esc(text) + "</pre>" : Html.esc(text)).append("</div>");
+                }
+                sb.append("</td></tr>");
             }
-            sb.append("</ul>");
+            sb.append("</table>");
         }
         relations(b, number, concepts, sb);
         frame(b.frame().get(number), sb);

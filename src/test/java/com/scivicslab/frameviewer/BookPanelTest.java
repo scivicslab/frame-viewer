@@ -61,8 +61,9 @@ class BookPanelTest {
         assertTrue(html.contains("Chap04/p006.md <a href=\"#\" class=\"edit-link\" data-edit-works=\"books/core/Chap04/p006.md\""), html);
         assertTrue(html.contains("<pre class=\"raw md\">A class is a template.\n\nIt runs on.</pre>"), html);
         assertTrue(panel().section("core", "4.1", "md", null).contains("(no text of its own: its subsections hold it)"));
-        assertTrue(html.contains("<ul class=\"concepts\"><li>class <span class=\"hint\">(in the title)</span></li><li>instance</li>"
-                + "<li class=\"dropped\">Object class <span class=\"hint\">(only in comment)</span></li></ul>"), html);
+        assertTrue(html.contains("<tr><td class=\"concept\">class <span class=\"hint\">(in the title)</span></td><td class=\"rules\"></td></tr>"
+                + "<tr><td class=\"concept\">instance</td><td class=\"rules\"></td></tr>"
+                + "<tr class=\"dropped\"><td class=\"concept\">Object class <span class=\"hint\">(only in comment)</span></td><td class=\"rules\"></td></tr></table>"), html);
         assertTrue(panel().section("core", "4.1", "md", null).contains("(not listed yet)"));
     }
 
@@ -150,5 +151,26 @@ class BookPanelTest {
                 + "<ul class=\"frame-rules\"><li><code>p1/1</code> A string is a sequence of Unicode characters.</li></ul>"
                 + "<div class=\"frame-kind\">behaviors</div><ul class=\"frame-rules\"><li><code>p2/1</code> The substring method extracts a part.</li></ul></div>"), html);
         assertTrue(html.contains("<li class=\"dropped\">String literal <span class=\"hint\">(1 rule)</span></li>"), html);
+    }
+
+    /** Beside each concept, the rst-on-lisp rules of the sentences step 4 said explain it, by rule name. */
+    @Test
+    void eachConceptShowsTheRulesOfItsSentencesBesideIt() {
+        var rules = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules("4.1.1", """
+                (defrule s1 -> p1 :heading "## 4.1.1. Classes")
+                (defrule p1 -> :nucleus p1/1 :example p1/2)
+                (defrule p1/1 -> "A class is a template.")
+                (defrule p1/2 -> "An instance is made from it.")
+                """, java.util.Map.of(), 2);
+        var listed = List.of(
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept("class", List.of(1, 2)),
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept("instance", List.of(2, 9)));
+        String html = panel().section("core", "4.1.1", "md", rules, listed);
+        assertTrue(html.contains("<table class=\"concepts\"><tr><th>concept</th><th>its rst-on-lisp rules</th></tr>"), html);
+        assertTrue(html.contains("<td class=\"concept\">class <span class=\"hint\">(in the title)</span></td><td class=\"rules\">"
+                + "<div class=\"rule-line\"><code>p1/1</code> A class is a template.</div>"
+                + "<div class=\"rule-line\"><code>p1/2</code> An instance is made from it.</div></td>"), html);
+        assertTrue(html.contains("<td class=\"concept\">instance</td><td class=\"rules\"><div class=\"rule-line\"><code>p1/2</code> An instance is made from it.</div></td>"),
+                "a sentence number past the rule file is left out: " + html);
     }
 }

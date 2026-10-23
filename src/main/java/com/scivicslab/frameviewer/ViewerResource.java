@@ -81,15 +81,18 @@ public class ViewerResource {
     @Produces(MediaType.TEXT_HTML)
     public String bookSection(@QueryParam("book") String book, @QueryParam("number") String number, @QueryParam("view") String view) {
         if (book == null || number == null) return "<p class=\"hint\">No section given.</p>";
+        // the rule file and the concepts' sentences: the concepts are shown with their rules beside them
         com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules = null;
-        if ("rst".equals(view)) {
+        List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed = null;
+        if (Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) {
             try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
                 rules = store.sectionRules(book, number);
+                listed = store.listedConcepts(book).get(number);
             } catch (java.sql.SQLException e) {
                 throw new IllegalStateException("could not read " + booksDb + ": " + e.getMessage(), e);
             }
         }
-        return bookPanel().section(book, number, view == null ? "md" : view, rules);
+        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed);
     }
 
     private String booksUrl() {
