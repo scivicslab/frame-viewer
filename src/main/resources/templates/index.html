@@ -13,16 +13,16 @@
       <a href="#" class="tab" data-tab="workflows" title="0. the frame-making workflows">Workflows</a>
       <a href="#" class="tab" data-tab="contents" title="1-1. a book's table of contents">Contents</a>
       <a href="#" class="tab" data-tab="sections" title="1-2. a book's text cut into its sections">Sections</a>
-      <a href="#" class="tab" data-tab="concrete">Concrete frames</a>
       <a href="#" class="tab" data-tab="integrated">Integrated frames</a>
       <a href="#" class="tab" data-tab="classes">Classes</a>
     </span>
     <span class="hint">Every name in a panel is a link to its own tab.</span></div>
-  <div class="layout" data-tab="concrete"><div class="tree"></div><div class="panel split">
-    <div class="pane frame-pane"><p class="hint">Select a concrete frame. It shows here, and its source beside it.</p></div>
+  <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel split">
+    <div class="pane frame-pane"><p class="hint">Select an integrated frame. A book paragraph it names opens beside it.</p></div>
     <div class="pane source-pane"></div></div></div>
-  <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel"><p class="hint">Select an integrated frame.</p></div></div>
-  <div class="layout" data-tab="classes"><div class="tree"></div><div class="panel"><p class="hint">Select a class. + marks a class added while assigning paragraphs, ± a class that got slots added.</p></div></div>
+  <div class="layout" data-tab="classes"><div class="tree"></div><div class="panel split">
+    <div class="pane frame-pane"><p class="hint">Select a class. + marks a class added while assigning paragraphs, ± a class that got slots added.</p></div>
+    <div class="pane source-pane"></div></div></div>
   <div class="layout" data-tab="contents"><div class="tree"></div><div class="panel"><p class="hint">Select a node of a book's table of contents, as book-toc.yaml read it.</p></div></div>
   <div class="layout" data-tab="sections"><div class="tree"></div><div class="panel"><p class="hint">Select a section to read its text, as book-sections.yaml cut it.</p></div></div>
   <div class="layout" data-tab="workflows"><div class="tree"></div><div class="panel"><p class="hint">Select a workflow. They are numbered in the order they run to make frames from a book.</p></div></div>
@@ -32,7 +32,9 @@
   $(function () {
     function pane(tab) { return $('.layout[data-tab="' + tab + '"]'); }
 
+    var currentTab = null;
     function showTab(tab) {
+      currentTab = tab;
       $('.layout').hide();
       pane(tab).css('display', 'flex');
       $('.tab').removeClass('active');
@@ -52,7 +54,8 @@
     // that id; otherwise it is a paragraph name, looked up as r-<name>.
     function load(tab, url, params, anchor, fullId) {
       showTab(tab);
-      var $panel = pane(tab).find('.panel');
+      // a tab with a source pane beside its panel puts the fragment in the left pane
+      var $panel = pane(tab).find('.frame-pane').length ? pane(tab).find('.frame-pane') : pane(tab).find('.panel');
       $.get(url, params, function (html) {
         $panel.html(html);
         var $a = anchor ? $panel.find('[id="' + (fullId ? anchor : 'r-' + anchor) + '"]') : $();
@@ -66,35 +69,24 @@
       });
     }
 
-    // A concrete frame opens as text in the left pane and its first source file beside it.
-    var shownFrame = null, shownSource = null, sourceView = 'lisp', shownView = null;
+    // An integrated frame opens as text in its tab; the concrete frames it names are shown as text, not opened.
+    var shownSource = null, sourceView = 'lisp', shownView = null, shownIn = null;
     function openFrame(path, rule) {
-      if (path.indexOf('explanation/') === 0) { load('integrated', 'raw-integrated', { path: path }, rule ? 'F-' + rule : null, true); return; }
-      showTab('concrete');
-      var $pane = pane('concrete').find('.frame-pane');
-      $.get('raw-frame', { path: path }, function (html) {
-        $pane.html(html);
-        $pane.scrollTop(0);
-        if (rule) { reveal($pane, $pane.find('[id="F-' + rule + '"]')); }
-        shownFrame = path;
-        shownSource = null;
-        var first = $pane.find('.raw-head').attr('data-first-source');
-        if (first) { openRawSource(first); } else { pane('concrete').find('.source-pane').html('<p class="hint">This frame names no source file.</p>'); }
-      });
+      if (path.indexOf('explanation/') === 0) { load('integrated', 'raw-integrated', { path: path }, rule ? 'F-' + rule : null, true); }
     }
 
-    // Shows a source file in the right pane, in the view last chosen (Lisp or Markdown), then brings a paragraph
-    // into view when one is named. A paragraph is found in the Lisp view, so naming one switches to it.
+    // Shows a source file in the right pane of the tab shown, in the view last chosen (Lisp or Markdown), then brings
+    // a paragraph into view when one is named. A paragraph is found in the Lisp view, so naming one switches to it.
     function openRawSource(file, rule) {
       if (rule) { sourceView = 'lisp'; }
-      var $pane = pane('concrete').find('.source-pane');
+      var $pane = pane(currentTab).find('.source-pane');
       function reveal() {
         var $a = rule ? $pane.find('[id="L-' + rule + '"]') : $();
         if ($a.length) { $pane.scrollTop($a.position().top + $pane.scrollTop() - $pane.find('.source-head').outerHeight() - 20); } else if (!rule) { $pane.scrollTop(0); }
       }
-      if (shownSource === file && shownView === sourceView) { reveal(); return; }
-      $.get('raw-source', { file: file, frame: shownFrame, view: sourceView }, function (html) {
-        $pane.html(html); shownSource = file; shownView = sourceView; reveal();
+      if (shownSource === file && shownView === sourceView && shownIn === currentTab) { reveal(); return; }
+      $.get('raw-source', { file: file, frame: '', view: sourceView }, function (html) {
+        $pane.html(html); shownSource = file; shownView = sourceView; shownIn = currentTab; reveal();
       });
     }
     function openClass(set, name) { load('classes', 'concept-class', { set: set, name: name }); }
@@ -140,6 +132,7 @@
       openRawSource(shownSource);
     });
     $(document).on('change', '.source-pane select.raw-file-select', function () { openRawSource($(this).val()); });
+    // a book paragraph named in a frame or a class opens beside it, in the tab's source pane
     $(document).on('click', '.frame-pane a.raw-rule', function (e) { e.preventDefault(); openRawSource($(this).attr('data-source'), $(this).attr('data-rule')); });
 
     $('.tab').on('click', function (e) { e.preventDefault(); showTab($(this).attr('data-tab')); });
@@ -153,16 +146,9 @@
     });
     $(document).on('click', '.panel a.section-link', function (e) { e.preventDefault(); load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section') }); });
     $(document).on('click', '.panel a.class-link', function (e) { e.preventDefault(); openClass($(this).attr('data-set'), $(this).attr('data-class')); });
-    // A paragraph assigned to a slot opens in the source pane of the concrete-frame tab, brought into view.
-    $(document).on('click', '.panel a.class-source', function (e) {
-      e.preventDefault();
-      showTab('concrete');
-      openRawSource($(this).attr('data-source'), $(this).attr('data-rule'));
-    });
-
     var first = 'workflows';
     try { first = localStorage.getItem('frame-viewer-tab') || 'workflows'; } catch (e) { }
-    // a tab remembered from before may have been removed (Tags)
+    // a tab remembered from before may have been removed (Tags, Concrete frames)
     if (!pane(first).length) first = 'workflows';
     showTab(first);
   });

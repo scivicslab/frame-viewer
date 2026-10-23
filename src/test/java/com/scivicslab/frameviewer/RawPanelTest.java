@@ -33,16 +33,6 @@ class RawPanelTest {
     }
 
     @Test
-    void theFrameIsShownAsItIsWithItsHeaderRuleNamesLinked() {
-        String html = panel().frame("subject/b/design.lisp", FRAME);
-        assertTrue(html.contains(";;; members: <a href=\"#\" class=\"raw-rule\" data-source=\"" + FILE + "\" data-rule=\"p-plan\">p-plan</a> (the &lt;plan&gt;)"), html);
-        assertTrue(html.contains("(defrule d -&gt; :instruction &quot;say \\&quot;what\\&quot;&quot;)"), html);
-        assertTrue(html.contains("<div class=\"raw-head\" data-first-source=\"" + FILE + "\">"), html);
-        assertTrue(html.contains("<b>subject/b/design.lisp</b> <a href=\"#\" class=\"edit-link\" data-edit-frame=\"subject/b/design.lisp\""), html);
-        assertTrue(html.contains(";;; subject: b 23 Design: the p-aside of it"), "the subject line is prose, not linked");
-    }
-
-    @Test
     void theSourceMarksTheNamedParagraphsWithTheirSubRulesAndContinuationLines() {
         String html = panel().source(FILE, SOURCE, "subject/b/design.lisp");
         assertTrue(html.contains("<span id=\"L-p-plan/n\"></span><span class=\"hit\">(defrule p-plan/n -&gt;</span>\n<span class=\"hit\">  &quot;We plan.&quot;)</span>"), html);
@@ -77,7 +67,7 @@ class RawPanelTest {
         Library lib = new Library().addFrame("subject/b/design.lisp", FRAME)
                 .addFrame("explanation/explain.lisp", text).addFrame("explanation/explain.part.lisp", "(defrule p -> q)");
         String html = new RawPanel(lib, new Sources(lib, Map.of(FILE, SOURCE)::get)).integrated("explanation/explain.lisp", text);
-        assertTrue(html.contains(";;; integrates: <a href=\"#\" class=\"frame-link\" data-frame=\"subject/b/design.lisp\">subject/b/design.lisp</a> (b, 23 Design)"), html);
+        assertTrue(html.contains(";;; integrates: subject/b/design.lisp (b, 23 Design)"), "a concrete frame's name is text: " + html);
         assertTrue(html.contains(":include &quot;<a href=\"#\" class=\"frame-link\" data-frame=\"explanation/explain.part.lisp\">explain.part.lisp</a>&quot;"), html);
         assertTrue(html.contains(":frame &quot;nope.lisp&quot;"), "a file that is no frame stays text");
         assertTrue(html.contains("<b>explanation/explain.lisp</b> <a href=\"#\" class=\"edit-link\" data-edit-frame=\"explanation/explain.lisp\""), html);
@@ -97,13 +87,8 @@ class RawPanelTest {
                 + "subject/b/design.lisp\td\t" + FILE + "\tp-plan\tmade-from\n"));
         RawPanel panel = new RawPanel(lib, new Sources(lib, Map.of(FILE, SOURCE)::get), links);
 
-        String concrete = panel.frame("subject/b/design.lisp", FRAME);
-        assertTrue(concrete.contains("<span id=\"F-d\"></span>(defrule d -&gt;"), concrete);
-        assertTrue(concrete.contains("class=\"frame-link edge\" data-frame=\"explanation/explain.lisp\" data-rule=\"p-what\""), concrete);
-        assertTrue(concrete.contains("class=\"raw-rule edge\" data-source=\"" + FILE + "\" data-rule=\"p-plan\""), concrete);
-
         String integrated = panel.integrated("explanation/explain.lisp", "(defrule p-what -> :nucleus p-what/n)\n");
         assertTrue(integrated.contains("<span id=\"F-p-what\"></span>(defrule p-what"), integrated);
-        assertTrue(integrated.contains("data-frame=\"subject/b/design.lisp\" data-rule=\"d\""), integrated);
+        assertTrue(integrated.contains("<span class=\"edge\" title=\"integrates: subject/b/design.lisp\">"), "a concrete frame's rule is text: " + integrated);
     }
 }

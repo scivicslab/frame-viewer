@@ -58,7 +58,6 @@ public class ViewerResource {
     public List<Library.TreeNode> tree(@QueryParam("tab") String tab) {
         Library lib = load();
         return switch (tab == null ? "workflows" : tab) {
-            case "concrete" -> lib.frameTree(false);
             case "integrated" -> lib.frameTree(true);
             case "classes" -> classPanel().tree();
             case "contents" -> bookPanel().contentsTree();
@@ -159,17 +158,7 @@ public class ViewerResource {
         return new ClassPanel(library, results, works.toString(), this::readUnderWorks, rstUnderWorks);
     }
 
-    /** The left pane of the concrete-frame tab: the frame file as it is, with its header words linked to paragraphs. */
-    @GET
-    @jakarta.ws.rs.Path("raw-frame")
-    @Produces(MediaType.TEXT_HTML)
-    public String rawFrame(@QueryParam("path") String path) {
-        if (path == null || path.isBlank()) return "<p class=\"hint\">No frame given.</p>";
-        Library lib = load();
-        return new RawPanel(lib, new Sources(lib, this::readUnderWorks), links()).frame(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
-    }
-
-    /** The right pane of the integrated-frame tab: the frame file as it is, with the frames it names linked. */
+    /** The left pane of the integrated-frame tab: the frame file as it is, with the integrated frames it names linked. */
     @GET
     @jakarta.ws.rs.Path("raw-integrated")
     @Produces(MediaType.TEXT_HTML)
@@ -180,8 +169,8 @@ public class ViewerResource {
     }
 
     /**
-     * The right pane of the concrete-frame tab: one source file as it is, the paragraphs the frame names marked; or,
-     * with {@code view=md}, the markdown file beside it as it is.
+     * The source pane of the integrated-frame and class tabs: one source file as it is; or, with {@code view=md}, the
+     * markdown file beside it as it is.
      */
     @GET
     @jakarta.ws.rs.Path("raw-source")

@@ -44,38 +44,6 @@ public final class RawPanel {
         this.links = links;
     }
 
-    /** The frame pane: links to its top frame and integrated frames, then its text. The head names the first source file. */
-    public String frame(String path, String text) {
-        Library.Frame frame = library.frame(path);
-        if (frame == null || text == null) return "<p class=\"hint\">No frame " + esc(path) + ".</p>";
-        StringBuilder sb = new StringBuilder();
-        List<String> files = sources.filesOf(path);
-        sb.append("<div class=\"raw-head\"");
-        if (!files.isEmpty()) sb.append(" data-first-source=\"").append(esc(files.get(0))).append("\"");
-        sb.append("><b>").append(esc(path)).append("</b> ").append(editFrameLink(path));
-        if (!frame.isTop() && library.frame(frame.topPath()) != null) sb.append("<br>Part of: ").append(frameLink(frame.topPath()));
-        List<String> into = new ArrayList<>();
-        for (String p : List.of(path, frame.topPath())) {
-            for (Library.Frame f : library.integratedInto(p)) if (!into.contains(f.path())) into.add(f.path());
-        }
-        if (!into.isEmpty()) {
-            sb.append("<br>Integrated into:");
-            for (String p : into) sb.append(" ").append(frameLink(p));
-        }
-        sb.append("</div><pre class=\"raw\">");
-        String key = null;
-        for (String line : text.split("\n", -1)) {
-            Matcher k = KEY.matcher(line);
-            if (k.lookingAt()) key = k.group(1);
-            else if (!line.startsWith(";;;   ")) key = null;
-            if (key != null && NAMING.contains(key)) linkRules(path, line, sb);
-            else ruleLine(path, line, sb);
-            sb.append("\n");
-        }
-        sb.append("</pre>");
-        return sb.toString();
-    }
-
     /**
      * The integrated-frame tab's pane: the frames that went into it and its own sub-frames are links, wherever their
      * file names appear in the text ({@code ;;; integrates:} lines, {@code :include}, {@code :frame}).
@@ -95,7 +63,8 @@ public final class RawPanel {
             int at = 0;
             while (m.find()) {
                 String target = library.frame(m.group()) != null ? m.group() : library.frame(dir + m.group()) != null ? dir + m.group() : null;
-                if (target == null) continue;
+                // only an integrated frame opens; a concrete frame's name stays text (the concrete-frame tab is gone)
+                if (target == null || !target.startsWith("explanation/")) continue;
                 sb.append(esc(line.substring(at, m.start())));
                 sb.append("<a href=\"#\" class=\"frame-link\" data-frame=\"").append(esc(target)).append("\">").append(esc(m.group())).append("</a>");
                 at = m.end();
@@ -107,17 +76,6 @@ public final class RawPanel {
         }
         sb.append("</pre>");
         return sb.toString();
-    }
-
-    /** A line of a frame: a rule line gets an anchor, and is followed by the rules its edges join it to. */
-    private void ruleLine(String path, String line, StringBuilder sb) {
-        Matcher d = DEFRULE.matcher(line);
-        if (!d.find()) {
-            sb.append(esc(line));
-            return;
-        }
-        sb.append("<span id=\"F-").append(esc(d.group(1))).append("\"></span>").append(esc(line));
-        edges(path, d.group(1), sb);
     }
 
     /**
@@ -136,6 +94,8 @@ public final class RawPanel {
                 sb.append("<a href=\"#\" class=\"raw-rule edge\" data-source=\"").append(esc(e.file())).append("\" data-rule=\"")
                         .append(esc(e.rule())).append("\" title=\"").append(esc(e.kind() + ": " + e.file())).append("\">")
                         .append(arrow).append(esc(label)).append("</a> ");
+            } else if (!e.file().startsWith("explanation/")) {
+                sb.append("<span class=\"edge\" title=\"").append(esc(e.kind() + ": " + e.file())).append("\">").append(arrow).append(esc(label)).append("</span> ");
             } else {
                 sb.append("<a href=\"#\" class=\"frame-link edge\" data-frame=\"").append(esc(e.file())).append("\" data-rule=\"")
                         .append(esc(e.rule())).append("\" title=\"").append(esc(e.kind() + ": " + e.file())).append("\">")
