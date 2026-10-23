@@ -230,6 +230,18 @@ public final class BookPanel {
                 }
             }
         }
+        // the breakdown by relation: the kinds become is-a children, the parts part-of children, the aspects and
+        // operations the items of the concept's frame; the pattern above is only the relation most of them bear
+        Map<String, List<String>> by = new java.util.LinkedHashMap<>();
+        for (String r : List.of("kind", "part", "step", "aspect", "operation")) by.put(r, new java.util.ArrayList<>());
+        for (var m : p.members()) by.computeIfAbsent(m.relation(), k -> new java.util.ArrayList<>()).add(m.name());
+        sb.append("<ul class=\"pattern-breakdown\">");
+        for (var e : by.entrySet()) {
+            sb.append("<li><b>").append(Html.esc(e.getKey())).append(' ').append(e.getValue().size()).append("</b>");
+            if (!e.getValue().isEmpty()) sb.append(": ").append(Html.esc(String.join("; ", e.getValue())));
+            sb.append("</li>");
+        }
+        sb.append("</ul>");
         if (p.members().isEmpty()) {
             sb.append("<p class=\"hint\">(no block related to ").append(Html.esc(p.concept())).append(")</p>");
             return;

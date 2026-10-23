@@ -67,6 +67,7 @@ class BookPanelTest {
         assertTrue(html.contains("<pre class=\"rule-lisp\">(defrule s1 -&gt; b1 b2 :heading"), html);
         assertTrue(html.contains("<th>what it takes up is, to class</th>"), html);
         assertTrue(html.contains("<td class=\"concept\">b1</td><td><b>part</b> template</td>"), html);
+        assertTrue(html.contains("<li><b>part 1</b>: template</li><li><b>step 0</b></li>"), html);
         assertTrue(html.indexOf("How it explains") < html.indexOf("The concepts it explains"), html);
     }
 
