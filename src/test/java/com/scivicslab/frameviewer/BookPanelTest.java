@@ -130,4 +130,23 @@ class BookPanelTest {
         assertTrue(html.contains("<h4>dropped by the review</h4><ul class=\"relation-children\"><li class=\"dropped\">Java feature concurrent programming</li></ul>"), html);
         assertTrue(html.contains("<h4>related to nothing (candidates for dropping)</h4><ul class=\"relation-children\"><li>Java"), html);
     }
+
+    /** A section's concrete frame material: the concepts that stay with their rules by kind, and those taken off apart. */
+    @Test
+    void theConcreteFrameMaterialShowsTheRulesOfEachConceptThatStays() {
+        var fr = java.util.Map.of("3.6", List.of(
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept("String", List.of(
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule("property", "p1/1", "A string is a sequence of Unicode characters."),
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule("behavior", "p2/1", "The substring method extracts a part.")), true),
+                new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept("String literal", List.of(
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule("property", "p2/2", "A literal is in quotes.")), false)));
+        BookPanel p = new BookPanel(List.of(new BookPanel.Book("core", "/w/books/core",
+                List.of(new BookOutline.Node("3.6", "section", "Strings", null, "a.md")),
+                List.of(new BookSections.Section("3.6", "Strings.", List.of("a.md"))), java.util.Set.of(), java.util.Map.of(), java.util.Map.of(), fr)), "/w");
+        String html = p.section("core", "3.6", "md", null);
+        assertTrue(html.contains("<h3>Concrete frame material</h3><div class=\"frame-concept\"><h4>String</h4><div class=\"frame-kind\">properties</div>"
+                + "<ul class=\"frame-rules\"><li><code>p1/1</code> A string is a sequence of Unicode characters.</li></ul>"
+                + "<div class=\"frame-kind\">behaviors</div><ul class=\"frame-rules\"><li><code>p2/1</code> The substring method extracts a part.</li></ul></div>"), html);
+        assertTrue(html.contains("<li class=\"dropped\">String literal <span class=\"hint\">(1 rule)</span></li>"), html);
+    }
 }

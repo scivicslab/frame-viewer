@@ -70,3 +70,8 @@ ul.relation-children { margin: 0 0 4px; padding-left: 22px; }
 .relation.unrelated h4 { color: #a60; }
 .relation .review { color: #a60; font-size: 0.85em; }
 .dropped-by-review li.dropped { text-decoration: line-through; color: #999; }
+.frame-concept h4 { margin: 10px 0 2px; font-size: 0.95em; }
+.frame-kind { font-size: 0.85em; color: #357; margin: 2px 0 0 8px; }
+ul.frame-rules { margin: 0 0 4px; padding-left: 26px; }
+ul.frame-rules code { color: #777; font-size: 0.85em; }
+.frame-off li.dropped { text-decoration: line-through; color: #999; }

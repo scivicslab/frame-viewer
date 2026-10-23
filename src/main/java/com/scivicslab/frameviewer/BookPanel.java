@@ -17,11 +17,20 @@ public final class BookPanel {
 
     /**
      * One book as the database holds it: its name, its directory, its table of contents, its sections, which sections
-     * have a rule file, the concepts each section explains, and how those concepts relate (step 6).
+     * have a rule file, the concepts each section explains, how those concepts relate (steps 6 and 7), and the
+     * material of each section's concrete frame.
      */
     public record Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections,
             java.util.Set<String> withRules, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept>> concepts,
-            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> relations) {
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> relations,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept>> frame) {
+
+        /** A book with no concrete-frame material yet. */
+        public Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections, java.util.Set<String> withRules,
+                Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept>> concepts,
+                Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> relations) {
+            this(name, dir, outline, sections, withRules, concepts, relations, Map.of());
+        }
     }
 
     private final Map<String, Book> books = new LinkedHashMap<>();
@@ -136,6 +145,7 @@ public final class BookPanel {
             sb.append("</ul>");
         }
         relations(b, number, concepts, sb);
+        frame(b.frame().get(number), sb);
         boolean rst = "rst".equals(view);
         sb.append("<h3>Its text <span class=\"raw-views\">")
           .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? "" : " active").append("\" data-view=\"md\" data-book=\"")
@@ -233,6 +243,41 @@ public final class BookPanel {
         if (!alone.isEmpty()) {
             sb.append("<div class=\"relation unrelated\"><h4>related to nothing (candidates for dropping)</h4><ul class=\"relation-children\">");
             for (String c : alone) sb.append("<li>").append(conceptWithWhy(c, why)).append("</li>");
+            sb.append("</ul></div>");
+        }
+    }
+
+    /**
+     * The material of the section's concrete frame: each concept on the list with the rules that say its properties
+     * and its behaviors, by rule name; then the concepts taken off the list, with how many rules they got.
+     */
+    private static void frame(List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> list, StringBuilder sb) {
+        if (list == null) return;
+        sb.append("<h3>Concrete frame material</h3>");
+        List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> off = new ArrayList<>();
+        for (var c : list) {
+            if (Boolean.FALSE.equals(c.kept())) {
+                off.add(c);
+                continue;
+            }
+            sb.append("<div class=\"frame-concept\"><h4>").append(Html.esc(c.concept())).append("</h4>");
+            for (String kind : List.of(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule.PROPERTY,
+                    com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule.BEHAVIOR)) {
+                var rules = c.rules().stream().filter(r -> r.kind().equals(kind)).toList();
+                if (rules.isEmpty()) continue;
+                sb.append("<div class=\"frame-kind\">").append(kind.equals("property") ? "properties" : "behaviors").append("</div><ul class=\"frame-rules\">");
+                for (var r : rules) {
+                    sb.append("<li><code>").append(Html.esc(r.rule())).append("</code> ").append(Html.esc(r.text())).append("</li>");
+                }
+                sb.append("</ul>");
+            }
+            if (c.rules().isEmpty()) sb.append("<p class=\"hint\">(no rule collected)</p>");
+            sb.append("</div>");
+        }
+        if (!off.isEmpty()) {
+            sb.append("<div class=\"frame-off\"><h4>taken off the list (the section says little about them)</h4><ul class=\"relation-children\">");
+            for (var c : off) sb.append("<li class=\"dropped\">").append(Html.esc(c.concept())).append(" <span class=\"hint\">(")
+                    .append(c.rules().size()).append(c.rules().size() == 1 ? " rule" : " rules").append(")</span></li>");
             sb.append("</ul></div>");
         }
     }
