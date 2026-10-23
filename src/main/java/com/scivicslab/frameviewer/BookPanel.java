@@ -214,7 +214,7 @@ public final class BookPanel {
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.SEQUENCE, "most blocks take up a step of it",
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.STRUCTURE, "most blocks take up a part of it",
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.PARTITION, "most blocks take up a kind of it (is-a)",
-            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.ASPECTS, "most blocks take up an aspect of it");
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.ASPECTS, "most blocks take up an aspect or an operation of it");
 
     /** How the section explains its main concept: the pattern, the heading rule, and each block that is a step, part, kind or aspect. */
     private static void pattern(com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout p,
