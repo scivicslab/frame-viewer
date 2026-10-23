@@ -17,10 +17,11 @@ public final class BookPanel {
 
     /**
      * One book as the database holds it: its name, its directory, its table of contents, its sections, which sections
-     * have a rule file, and the concepts each section explains.
+     * have a rule file, the concepts each section explains, and how those concepts relate (step 6).
      */
     public record Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections,
-            java.util.Set<String> withRules, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept>> concepts) {
+            java.util.Set<String> withRules, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept>> concepts,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> relations) {
     }
 
     private final Map<String, Book> books = new LinkedHashMap<>();
@@ -59,7 +60,8 @@ public final class BookPanel {
                 String title = n == null ? "" : n.title();
                 String text = s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")
                         + (b.withRules().contains(s.number()) ? " · rst" : "")
-                        + (b.concepts().containsKey(s.number()) ? " · " + conceptCount(b.concepts().get(s.number())) : "");
+                        + (b.concepts().containsKey(s.number()) ? " · " + conceptCount(b.concepts().get(s.number())) : "")
+                        + (b.relations().containsKey(s.number()) ? " · " + b.relations().get(s.number()).size() + " relations" : "");
                 out.add(new Library.TreeNode("s:" + b.name() + "|" + s.number(), root, text, Map.of("data-book", b.name(), "data-section", s.number())));
             }
         }
@@ -133,6 +135,7 @@ public final class BookPanel {
             }
             sb.append("</ul>");
         }
+        relations(b, number, concepts, sb);
         boolean rst = "rst".equals(view);
         sb.append("<h3>Its text <span class=\"raw-views\">")
           .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? "" : " active").append("\" data-view=\"md\" data-book=\"")
@@ -153,6 +156,51 @@ public final class BookPanel {
             }
         }
         return sb.toString();
+    }
+
+    /** The headings of step 6's three kinds of relation, in the order they are shown. */
+    private static final Map<String, String> RELATION_HEADINGS = new java.util.LinkedHashMap<>(Map.of());
+    static {
+        RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.IS_A, "is-a relation");
+        RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.PART_OF, "part-of relation");
+        RELATION_HEADINGS.put(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation.FEATURE, "feature");
+    }
+
+    /**
+     * How the section's concepts relate (step 6): for each kind, each parent concept with the ones that are kinds of
+     * it, parts of it, or features of it under it, each with the reason step 5 kept it.
+     */
+    private static void relations(Book b, String number, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept> concepts,
+            StringBuilder sb) {
+        var rel = b.relations().get(number);
+        if (rel == null) {
+            if (concepts != null && concepts.size() > 1) sb.append("<h3>How they relate</h3><p class=\"hint\">(not asked yet)</p>");
+            return;
+        }
+        Map<String, String> why = new java.util.HashMap<>();
+        if (concepts != null) for (var c : concepts) why.put(c.concept(), c.reason());
+        sb.append("<h3>How they relate</h3>");
+        if (rel.isEmpty()) {
+            sb.append("<p class=\"hint\">(none found)</p>");
+            return;
+        }
+        for (var kind : RELATION_HEADINGS.entrySet()) {
+            Map<String, List<String>> byParent = new LinkedHashMap<>();
+            for (var r : rel) if (r.kind().equals(kind.getKey())) byParent.computeIfAbsent(r.parent(), k -> new ArrayList<>()).add(r.child());
+            if (byParent.isEmpty()) continue;
+            sb.append("<div class=\"relation\"><h4>").append(Html.esc(kind.getValue())).append("</h4>");
+            for (var e : byParent.entrySet()) {
+                sb.append("<div class=\"relation-parent\">").append(conceptWithWhy(e.getKey(), why)).append("</div><ul class=\"relation-children\">");
+                for (String child : e.getValue()) sb.append("<li>").append(conceptWithWhy(child, why)).append("</li>");
+                sb.append("</ul>");
+            }
+            sb.append("</div>");
+        }
+    }
+
+    private static String conceptWithWhy(String concept, Map<String, String> why) {
+        String w = why.get(concept);
+        return Html.esc(concept) + (w == null ? "" : " <span class=\"hint\">(" + Html.esc(w) + ")</span>");
     }
 
     /** "8 concepts", or "8 concepts, 1 dropped" once step 5 has judged them */

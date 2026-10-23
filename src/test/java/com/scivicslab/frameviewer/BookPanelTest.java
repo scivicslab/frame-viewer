@@ -26,7 +26,11 @@ class BookPanelTest {
                 java.util.Map.of("4.1.1", List.of(
                         new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("class", true, "in the title"),
                         new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("instance", null, null),
-                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("Object class", false, "only in comment"))))), "/w");
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept("Object class", false, "only in comment"))),
+                java.util.Map.of("4.1.1", List.of(
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation("is-a", "instance", "class", List.of(2)),
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation("part-of", "Object class", "class", List.of(1)),
+                        new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation("feature", "instance", "Object class", List.of(1)))))), "/w");
     }
 
     @Test
@@ -37,7 +41,7 @@ class BookPanelTest {
                 java.util.Map.of("data-book", "core", "data-node", "4.1.1", "data-level", "subsection")), c.get(3));
         List<Library.TreeNode> s = panel().sectionsTree();
         assertEquals("core (3 sections)", s.get(0).text());
-        assertEquals("4.1.1 Classes  · 35 chars, 2 files · rst · 3 concepts, 1 dropped", s.get(3).text());
+        assertEquals("4.1.1 Classes  · 35 chars, 2 files · rst · 3 concepts, 1 dropped · 3 relations", s.get(3).text());
         assertEquals("sb:core", s.get(3).parent());
     }
 
@@ -71,5 +75,19 @@ class BookPanelTest {
         assertTrue(html.contains("<pre class=\"raw lisp\">(defrule title -&gt; &quot;4.1.1. Classes&quot;)</pre>"), html);
         assertTrue(html.contains("<div class=\"raw-path\">b2.txt</div><pre class=\"raw\">class A {}</pre>"), html);
         assertTrue(panel().section("core", "4.1", "rst", null).contains("(no rule file yet"));
+    }
+
+    /** Step 6: each kind of relation under its heading, each parent with its children under it, with why step 5 kept them. */
+    @Test
+    void theRelationsAreShownByKindWithEachParentOverItsChildren() {
+        String html = panel().section("core", "4.1.1", "md", null);
+        assertTrue(html.contains("<h3>How they relate</h3>"), html);
+        assertTrue(html.contains("<div class=\"relation\"><h4>is-a relation</h4><div class=\"relation-parent\">class <span class=\"hint\">(in the title)</span></div>"
+                + "<ul class=\"relation-children\"><li>instance</li></ul></div>"), html);
+        assertTrue(html.contains("<h4>part-of relation</h4><div class=\"relation-parent\">class <span class=\"hint\">(in the title)</span></div>"
+                + "<ul class=\"relation-children\"><li>Object class <span class=\"hint\">(only in comment)</span></li></ul>"), html);
+        assertTrue(html.contains("<h4>feature</h4><div class=\"relation-parent\">Object class"), html);
+        assertTrue(html.indexOf("is-a relation") < html.indexOf("part-of relation") && html.indexOf("part-of relation") < html.indexOf("<h4>feature"),
+                "in the order is-a, part-of, feature");
     }
 }
