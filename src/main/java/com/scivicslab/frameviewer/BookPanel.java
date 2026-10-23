@@ -248,8 +248,9 @@ public final class BookPanel {
     }
 
     /**
-     * The material of the section's concrete frame: each concept on the list with the rules that say its properties
-     * and its behaviors, by rule name; then the concepts taken off the list, with how many rules they got.
+     * The material of the section's concrete frame: each concept on the list, with the features and parts folded into
+     * it, and the rules that say its properties and its behaviors, by rule name; then the concepts taken off the list,
+     * with how many rules they got.
      */
     private static void frame(List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> list, StringBuilder sb) {
         if (list == null) return;
@@ -261,6 +262,9 @@ public final class BookPanel {
                 continue;
             }
             sb.append("<div class=\"frame-concept\"><h4>").append(Html.esc(c.concept())).append("</h4>");
+            if (c.folded() != null && !c.folded().isEmpty()) {
+                sb.append("<div class=\"frame-folded\">with its features and parts: ").append(Html.esc(String.join(", ", c.folded()))).append("</div>");
+            }
             for (String kind : List.of(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule.PROPERTY,
                     com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule.BEHAVIOR)) {
                 var rules = c.rules().stream().filter(r -> r.kind().equals(kind)).toList();
