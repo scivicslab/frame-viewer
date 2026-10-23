@@ -158,20 +158,21 @@ public final class BookPanel {
                 sb.append("<tr").append(dropped ? " class=\"dropped\"" : "").append("><td class=\"concept\">").append(Html.esc(c.concept()));
                 if (c.reason() != null) sb.append(" <span class=\"hint\">(").append(Html.esc(c.reason())).append(")</span>");
                 sb.append("</td><td class=\"rules\">");
+                java.util.Set<String> shown = new java.util.HashSet<>();
                 for (int k : at.getOrDefault(c.concept(), List.of())) {
                     if (k < 1 || k > units.size()) continue;
                     var u = units.get(k - 1);
-                    String text = u.text().strip();
-                    if (text.length() > 400) text = text.substring(0, 400) + " ...";
-                    sb.append("<div class=\"rule-line\"><code>").append(Html.esc(u.rule() == null ? "[" + k + "]" : u.rule())).append("</code> ")
-                      .append(u.role().equals("code") ? "<pre class=\"rule-code\">" + Html.esc(text) + "</pre>" : Html.esc(text)).append("</div>");
+                    if (u.rule() != null && !shown.add(u.rule())) continue;
+                    sb.append(ruleForm(rules.rules(), u.rule(), u.text()));
+                    // a code block's rule names its file; the code itself follows
+                    if (u.role().equals("code")) sb.append("<pre class=\"rule-code\">").append(Html.esc(clip(u.text().strip()))).append("</pre>");
                 }
                 sb.append("</td></tr>");
             }
             sb.append("</table>");
         }
         relations(b, number, concepts, sb);
-        frame(b.frame().get(number), sb);
+        frame(b.frame().get(number), rules == null ? null : rules.rules(), sb);
         boolean rst = "rst".equals(view);
         sb.append("<h3>Its text <span class=\"raw-views\">")
           .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? "" : " active").append("\" data-view=\"md\" data-book=\"")
@@ -280,7 +281,7 @@ public final class BookPanel {
      * it, and the rules that say its properties and its behaviors, by rule name; then the concepts taken off the list,
      * with how many rules they got.
      */
-    private static void frame(List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> list, StringBuilder sb) {
+    private static void frame(List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> list, String ruleFile, StringBuilder sb) {
         if (list == null) return;
         sb.append("<h3>Concrete frame material</h3>");
         List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> off = new ArrayList<>();
@@ -298,9 +299,7 @@ public final class BookPanel {
                 var rules = c.rules().stream().filter(r -> r.kind().equals(kind)).toList();
                 if (rules.isEmpty()) continue;
                 sb.append("<div class=\"frame-kind\">").append(kind.equals("property") ? "properties" : "behaviors").append("</div><ul class=\"frame-rules\">");
-                for (var r : rules) {
-                    sb.append("<li><code>").append(Html.esc(r.rule())).append("</code> ").append(Html.esc(r.text())).append("</li>");
-                }
+                for (var r : rules) sb.append("<li>").append(ruleForm(ruleFile, r.rule(), r.text())).append("</li>");
                 sb.append("</ul>");
             }
             if (c.rules().isEmpty()) sb.append("<p class=\"hint\">(no rule collected)</p>");
@@ -317,6 +316,16 @@ public final class BookPanel {
     private static String conceptWithWhy(String concept, Map<String, String> why) {
         String w = why.get(concept);
         return Html.esc(concept) + (w == null ? "" : " <span class=\"hint\">(" + Html.esc(w) + ")</span>");
+    }
+
+    /** One rule as the rule file writes it, its {@code defrule} form; its text when the file does not have it. */
+    private static String ruleForm(String ruleFile, String rule, String text) {
+        String form = rule == null || ruleFile == null ? null : com.scivicslab.turingworkflow.plugins.rstframe.RuleFile.formOf(ruleFile, rule);
+        return "<pre class=\"rule-lisp\">" + Html.esc(form != null ? form : (rule == null ? "" : rule + " ") + clip(text.strip())) + "</pre>";
+    }
+
+    private static String clip(String text) {
+        return text.length() > 1200 ? text.substring(0, 1200) + " ..." : text;
     }
 
     /** "8 concepts", or "8 concepts, 1 dropped" once step 5 has judged them */

@@ -83,3 +83,5 @@ ul.frame-rules { margin: 0 0 4px; padding-left: 26px; }
 ul.frame-rules code { color: #777; font-size: 0.85em; }
 .frame-off li.dropped { text-decoration: line-through; color: #999; }
 .frame-folded { font-size: 0.85em; color: #777; margin: 0 0 2px 8px; }
+pre.rule-lisp { margin: 1px 0; font-size: 0.85em; white-space: pre-wrap; background: #fafafa; padding: 1px 4px; }
+ul.frame-rules { list-style: none; }

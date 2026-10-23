@@ -151,8 +151,9 @@ class BookPanelTest {
         String html = p.section("core", "3.6", "md", null);
         assertTrue(html.contains("<h3>Concrete frame material</h3><div class=\"frame-concept\"><h4>String</h4>"
                 + "<div class=\"frame-folded\">with its features, parts and operations: String.length, String.charAt</div><div class=\"frame-kind\">properties</div>"
-                + "<ul class=\"frame-rules\"><li><code>p1/1</code> A string is a sequence of Unicode characters.</li></ul>"
-                + "<div class=\"frame-kind\">behaviors</div><ul class=\"frame-rules\"><li><code>p2/1</code> The substring method extracts a part.</li></ul></div>"), html);
+                + "<ul class=\"frame-rules\"><li><pre class=\"rule-lisp\">p1/1 A string is a sequence of Unicode characters.</pre></li></ul>"
+                + "<div class=\"frame-kind\">behaviors</div><ul class=\"frame-rules\"><li><pre class=\"rule-lisp\">p2/1 The substring method extracts a part.</pre></li></ul></div>"),
+                "without the rule file, a rule shows its name and text: " + html);
         assertTrue(html.contains("<li class=\"dropped\">String literal <span class=\"hint\">(1 rule)</span></li>"), html);
     }
 
@@ -171,9 +172,9 @@ class BookPanelTest {
         String html = panel().section("core", "4.1.1", "md", rules, listed);
         assertTrue(html.contains("<table class=\"concepts\"><tr><th>concept</th><th>its rst-on-lisp rules</th></tr>"), html);
         assertTrue(html.contains("<td class=\"concept\">class <span class=\"hint\">(in the title)</span></td><td class=\"rules\">"
-                + "<div class=\"rule-line\"><code>p1/1</code> A class is a template.</div>"
-                + "<div class=\"rule-line\"><code>p1/2</code> An instance is made from it.</div></td>"), html);
-        assertTrue(html.contains("<td class=\"concept\">instance</td><td class=\"rules\"><div class=\"rule-line\"><code>p1/2</code> An instance is made from it.</div></td>"),
+                + "<pre class=\"rule-lisp\">(defrule p1/1 -&gt; &quot;A class is a template.&quot;)</pre>"
+                + "<pre class=\"rule-lisp\">(defrule p1/2 -&gt; &quot;An instance is made from it.&quot;)</pre></td>"), html);
+        assertTrue(html.contains("<td class=\"concept\">instance</td><td class=\"rules\"><pre class=\"rule-lisp\">(defrule p1/2 -&gt; &quot;An instance is made from it.&quot;)</pre></td>"),
                 "a sentence number past the rule file is left out: " + html);
     }
 }
