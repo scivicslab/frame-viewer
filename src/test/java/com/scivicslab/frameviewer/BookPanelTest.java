@@ -46,6 +46,22 @@ class BookPanelTest {
     }
 
     @Test
+    void aConceptShowsItsItemsWithTheRulesThatAnswerThemAboveItsMaterial() {
+        var rule = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule("property", "b4/2", "The first character cannot be a digit.");
+        BookPanel p = new BookPanel(List.of(new BookPanel.Book("core", "/w/books/core",
+                List.of(new BookOutline.Node("3.4.1", "subsection", "Declaring Variables", null, "f.md")),
+                List.of(new BookSections.Section("3.4.1", "x", List.of("f.md"))), java.util.Set.of(), java.util.Map.of(), java.util.Map.of(),
+                java.util.Map.of("3.4.1", List.of(new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept("identifier", List.of(rule), true))))),
+                "/w");
+        var rules = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules("3.4.1",
+                "(defrule b4/2 -> \"The first character cannot be a digit.\")\n", java.util.Map.of(), 0);
+        String html = p.section("core", "3.4.1", "md", rules, null, null, java.util.Map.of("identifier",
+                List.of(new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem("What can an identifier not begin with?", List.of("b4/2")))));
+        assertTrue(html.contains("<td class=\"concept\">What can an identifier not begin with?</td><td class=\"rules\"><pre class=\"rule-lisp\">(defrule b4/2"), html);
+        assertTrue(html.indexOf(">items</div>") < html.indexOf(">properties</div>"), html);
+    }
+
+    @Test
     void theSectionsListSaysHowEachAskedSectionExplainsItsMainConcept() {
         BookPanel p = new BookPanel(List.of(new BookPanel.Book("core", "/w/books/core",
                 List.of(new BookOutline.Node("3.2", "section", "Comments", null, "f.md")),

@@ -149,6 +149,20 @@ public final class BookPanel {
     public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
             List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed,
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern) {
+        return section(book, number, view, rules, listed, pattern, Map.of());
+    }
+
+    /**
+     * As {@link #section(String, String, String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules, List,
+     * com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout)}, with each concrete-frame concept's items: the
+     * questions its explanation answers, each with the rules that answer it.
+     *
+     * @param items the items of each concept of the section, by concept
+     */
+    public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
+            List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed,
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items) {
         Book b = books.get(book);
         if (b == null) return "<p class=\"hint\">No book " + Html.esc(book) + " in the database.</p>";
         BookSections.Section s = b.sections().stream().filter(x -> x.number().equals(number)).findFirst().orElse(null);
@@ -197,7 +211,7 @@ public final class BookPanel {
             sb.append("</table>");
         }
         relations(b, number, concepts, sb);
-        frame(b.frame().get(number), rules == null ? null : rules.rules(), sb);
+        frame(b.frame().get(number), rules == null ? null : rules.rules(), items == null ? Map.of() : items, sb);
         boolean rst = "rst".equals(view);
         sb.append("<h3>Its text <span class=\"raw-views\">")
           .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? "" : " active").append("\" data-view=\"md\" data-book=\"")
@@ -352,7 +366,8 @@ public final class BookPanel {
      * it, and the rules that say its properties and its behaviors, by rule name; then the concepts taken off the list,
      * with how many rules they got.
      */
-    private static void frame(List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> list, String ruleFile, StringBuilder sb) {
+    private static void frame(List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> list, String ruleFile,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items, StringBuilder sb) {
         if (list == null) return;
         sb.append("<h3>Concrete frame material</h3>");
         List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> off = new ArrayList<>();
@@ -364,6 +379,20 @@ public final class BookPanel {
             sb.append("<div class=\"frame-concept\"><h4>").append(Html.esc(c.concept())).append("</h4>");
             if (c.folded() != null && !c.folded().isEmpty()) {
                 sb.append("<div class=\"frame-folded\">with its features, parts and operations: ").append(Html.esc(String.join(", ", c.folded()))).append("</div>");
+            }
+            // the items: the questions an explanation of the concept answers, each with the rules that answer it here
+            var its = items.get(c.concept());
+            if (its != null && !its.isEmpty()) {
+                Map<String, String> textOf = new java.util.HashMap<>();
+                for (var r : c.rules()) textOf.put(r.rule(), r.text());
+                sb.append("<div class=\"frame-kind\">items</div><table class=\"concepts frame-items\"><tr><th>the question it answers</th>")
+                  .append("<th>its rst-on-lisp rules</th></tr>");
+                for (var it : its) {
+                    sb.append("<tr><td class=\"concept\">").append(Html.esc(it.question())).append("</td><td class=\"rules\">");
+                    for (String r : it.rules()) sb.append(ruleForm(ruleFile, r, textOf.getOrDefault(r, "")));
+                    sb.append("</td></tr>");
+                }
+                sb.append("</table>");
             }
             for (String kind : List.of(com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule.PROPERTY,
                     com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameRule.BEHAVIOR)) {

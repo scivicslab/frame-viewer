@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import io.quarkus.qute.Template;
@@ -85,16 +86,18 @@ public class ViewerResource {
         com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules = null;
         List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed = null;
         com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern = null;
+        Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items = Map.of();
         if (Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) {
             try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
                 rules = store.sectionRules(book, number);
                 listed = store.listedConcepts(book).get(number);
                 pattern = store.patterns(book).get(number);
+                items = store.frameItems(book).getOrDefault(number, Map.of());
             } catch (java.sql.SQLException e) {
                 throw new IllegalStateException("could not read " + booksDb + ": " + e.getMessage(), e);
             }
         }
-        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern);
+        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items);
     }
 
     private String booksUrl() {
