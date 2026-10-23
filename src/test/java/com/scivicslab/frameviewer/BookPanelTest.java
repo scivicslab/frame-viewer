@@ -60,13 +60,13 @@ class BookPanelTest {
                 "(defrule s1 -> b1 b2 :heading \"## 4.1.1 Classes\")\n(defrule b1 -> \"A class is a template.\")\n(defrule b2 -> \"It runs on.\")\n",
                 java.util.Map.of(), 0);
         var pattern = new com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout("class", "structure",
-                List.of(new com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Member("b1", "template")));
+                List.of(new com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Member("b1", "part", "template")));
         String html = panel().section("core", "4.1.1", "md", rules, null, pattern);
         assertTrue(html.contains("<h3>How it explains class</h3>"), html);
-        assertTrue(html.contains("<b>structure</b>: the blocks take it apart into its parts"), html);
+        assertTrue(html.contains("<b>structure</b>: most blocks take up a part of it"), html);
         assertTrue(html.contains("<pre class=\"rule-lisp\">(defrule s1 -&gt; b1 b2 :heading"), html);
-        assertTrue(html.contains("<th>the part of class it explains</th>"), html);
-        assertTrue(html.contains("<td class=\"concept\">b1</td><td>template</td>"), html);
+        assertTrue(html.contains("<th>what it takes up is, to class</th>"), html);
+        assertTrue(html.contains("<td class=\"concept\">b1</td><td><b>part</b> template</td>"), html);
         assertTrue(html.indexOf("How it explains") < html.indexOf("The concepts it explains"), html);
     }
 

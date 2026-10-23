@@ -209,19 +209,19 @@ public final class BookPanel {
         return sb.toString();
     }
 
-    /** What each pattern says of the blocks, and what each block it names is. */
-    private static final Map<String, String[]> PATTERNS = Map.of(
-            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.SEQUENCE, new String[] {"the blocks go through its steps in order", "step"},
-            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.STRUCTURE, new String[] {"the blocks take it apart into its parts", "part"},
-            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.PARTITION, new String[] {"the blocks divide it into its kinds", "kind"},
-            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.ASPECTS, new String[] {"the blocks take up one aspect of it after another", "aspect"});
+    /** What each pattern says of the blocks: the relation most of them bear to the main concept. */
+    private static final Map<String, String> PATTERNS = Map.of(
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.SEQUENCE, "most blocks take up a step of it",
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.STRUCTURE, "most blocks take up a part of it",
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.PARTITION, "most blocks take up a kind of it (is-a)",
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.ASPECTS, "most blocks take up an aspect of it");
 
     /** How the section explains its main concept: the pattern, the heading rule, and each block that is a step, part, kind or aspect. */
     private static void pattern(com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout p,
             com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules, StringBuilder sb) {
-        String[] says = PATTERNS.getOrDefault(p.pattern(), new String[] {"", "member"});
+        String says = PATTERNS.getOrDefault(p.pattern(), "");
         sb.append("<h3>How it explains ").append(Html.esc(p.concept())).append("</h3>");
-        sb.append("<p class=\"section-pattern\"><b>").append(Html.esc(p.pattern())).append("</b>: ").append(Html.esc(says[0])).append("</p>");
+        sb.append("<p class=\"section-pattern\"><b>").append(Html.esc(p.pattern())).append("</b>: ").append(Html.esc(says)).append("</p>");
         if (rules != null) {
             for (var r : com.scivicslab.turingworkflow.plugins.rstframe.RuleFile.parse(rules.rules()).rules()) {
                 if (r.attr(":heading") != null) {
@@ -231,13 +231,14 @@ public final class BookPanel {
             }
         }
         if (p.members().isEmpty()) {
-            sb.append("<p class=\"hint\">(no block named as a ").append(says[1]).append(")</p>");
+            sb.append("<p class=\"hint\">(no block related to ").append(Html.esc(p.concept())).append(")</p>");
             return;
         }
-        sb.append("<table class=\"concepts pattern\"><tr><th>block</th><th>the ").append(says[1]).append(" of ").append(Html.esc(p.concept()))
-          .append(" it explains</th></tr>");
+        sb.append("<table class=\"concepts pattern\"><tr><th>block</th><th>what it takes up is, to ").append(Html.esc(p.concept()))
+          .append("</th></tr>");
         for (var m : p.members()) {
-            sb.append("<tr><td class=\"concept\">").append(Html.esc(m.block())).append("</td><td>").append(Html.esc(m.name())).append("</td></tr>");
+            sb.append("<tr><td class=\"concept\">").append(Html.esc(m.block())).append("</td><td><b>").append(Html.esc(m.relation()))
+              .append("</b> ").append(Html.esc(m.name())).append("</td></tr>");
         }
         sb.append("</table>");
     }
