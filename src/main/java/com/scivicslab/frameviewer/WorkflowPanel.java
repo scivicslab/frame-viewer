@@ -32,14 +32,14 @@ public final class WorkflowPanel {
     }
 
     /** One node per workflow, numbered in the order they run. */
-    public List<Library.TreeNode> tree() {
-        List<Library.TreeNode> out = new ArrayList<>();
+    public List<TreeNode> tree() {
+        List<TreeNode> out = new ArrayList<>();
         int n = 0;
         for (String name : names) {
             n++;
             String text = texts.get(name);
             String title = n + ". " + name + (text == null ? " (missing)" : "");
-            out.add(new Library.TreeNode("w:" + name, "#", title, Map.of("data-workflow", name, "title", firstLine(description(text)))));
+            out.add(new TreeNode("w:" + name, "#", title, Map.of("data-workflow", name, "title", firstLine(description(text)))));
         }
         return out;
     }

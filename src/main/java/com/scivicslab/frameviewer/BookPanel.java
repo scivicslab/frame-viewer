@@ -52,14 +52,14 @@ public final class BookPanel {
     }
 
     /** The Contents tab: one root per book, its parts, chapters, sections and subsections under their parents. */
-    public List<Library.TreeNode> contentsTree() {
-        List<Library.TreeNode> out = new ArrayList<>();
+    public List<TreeNode> contentsTree() {
+        List<TreeNode> out = new ArrayList<>();
         for (Book b : books.values()) {
             String root = "b:" + b.name();
-            out.add(new Library.TreeNode(root, "#", b.name() + " (" + b.outline().size() + " nodes)", Map.of()));
+            out.add(new TreeNode(root, "#", b.name() + " (" + b.outline().size() + " nodes)", Map.of()));
             for (BookOutline.Node n : b.outline()) {
                 String parent = n.parent() == null ? root : "n:" + b.name() + "|" + n.parent();
-                out.add(new Library.TreeNode("n:" + b.name() + "|" + n.number(), parent, n.number() + " " + n.title(),
+                out.add(new TreeNode("n:" + b.name() + "|" + n.number(), parent, n.number() + " " + n.title(),
                         Map.of("data-book", b.name(), "data-node", n.number(), "data-level", n.level())));
             }
         }
@@ -67,11 +67,11 @@ public final class BookPanel {
     }
 
     /** The Sections tab: one root per book, its sections in the book's order, each with its length and how many files it spans. */
-    public List<Library.TreeNode> sectionsTree() {
-        List<Library.TreeNode> out = new ArrayList<>();
+    public List<TreeNode> sectionsTree() {
+        List<TreeNode> out = new ArrayList<>();
         for (Book b : books.values()) {
             String root = "sb:" + b.name();
-            out.add(new Library.TreeNode(root, "#", b.name() + " (" + b.sections().size() + " sections)", Map.of()));
+            out.add(new TreeNode(root, "#", b.name() + " (" + b.sections().size() + " sections)", Map.of()));
             Map<String, BookOutline.Node> nodes = nodes(b);
             for (BookSections.Section s : b.sections()) {
                 BookOutline.Node n = nodes.get(s.number());
@@ -82,7 +82,7 @@ public final class BookPanel {
                         + (b.relations().containsKey(s.number()) ? " · " + b.relations().get(s.number()).size() + " relations" : "")
                         + (b.patterns().containsKey(s.number()) ? " · " + b.patterns().get(s.number()).pattern() + " of "
                                 + b.patterns().get(s.number()).concept() : "");
-                out.add(new Library.TreeNode("s:" + b.name() + "|" + s.number(), root, text, Map.of("data-book", b.name(), "data-section", s.number())));
+                out.add(new TreeNode("s:" + b.name() + "|" + s.number(), root, text, Map.of("data-book", b.name(), "data-section", s.number())));
             }
         }
         return out;

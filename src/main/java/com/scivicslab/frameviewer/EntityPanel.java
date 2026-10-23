@@ -7,10 +7,11 @@ import java.util.Map;
 import java.util.function.Function;
 
 import com.scivicslab.turingworkflow.plugins.rstframe.BookStore;
+import com.scivicslab.turingworkflow.plugins.rstframe.GeneralFrames;
 import com.scivicslab.turingworkflow.plugins.rstframe.RuleFile;
 
 /**
- * The Book frames tab: the concepts of a book recognized across its sections, and the generalized concepts above them.
+ * The Integrated frames tab: the concepts of a book recognized across its sections, and the generalized concepts above them.
  * A concept shows the sections it appears in, its items (the questions an explanation of it answers, each with the
  * rst-on-lisp rules that answer it, from whichever section), and its frame material, the rules gathered for it in every
  * section, put together. A generalized concept shows its kinds as well, and its material is theirs and its own.
@@ -40,33 +41,77 @@ public final class EntityPanel {
         this.rulesOf = rulesOf;
     }
 
-    /** @return the tree: the generalized concepts with their kinds under them, then the concepts of several sections, then those of one */
-    public List<Library.TreeNode> tree() {
-        List<Library.TreeNode> out = new ArrayList<>();
+    /**
+     * @return the generalized concept tree: each generalized concept with its kinds under it, a kind that is itself
+     *         generalized with its own kinds under it, from the top down; then the concepts of the book that the tree
+     *         does not reach, of several sections and of one
+     */
+    public List<TreeNode> tree() {
+        List<TreeNode> out = new ArrayList<>();
         Map<String, BookStore.Entity> byId = new LinkedHashMap<>();
         for (BookStore.Entity e : entities) byId.put(e.id(), e);
-        List<BookStore.Entity> general = entities.stream().filter(e -> e.level().equals(BookStore.Entity.GENERAL)).toList();
-        List<BookStore.Entity> several = entities.stream().filter(e -> e.level().equals(BookStore.Entity.CONCEPT) && e.members().size() > 1).toList();
-        List<BookStore.Entity> one = entities.stream().filter(e -> e.level().equals(BookStore.Entity.CONCEPT) && e.members().size() <= 1).toList();
-        String g = "eg:" + book, s = "es:" + book, o = "eo:" + book;
-        out.add(new Library.TreeNode(g, "#", book + ": generalized concepts (" + general.size() + ")", Map.of()));
-        for (BookStore.Entity e : general) {
-            String id = "e:" + book + "|" + e.id();
-            out.add(node(id, g, e, e.name() + "  · " + e.children().size() + " kinds" + itemCount(e)));
-            for (String c : e.children()) {
+        // a kind is itself generalized when a generalized concept has its name
+        Map<String, BookStore.Entity> generalOf = new LinkedHashMap<>();
+        for (BookStore.Entity e : entities) {
+            if (e.level().equals(BookStore.Entity.GENERAL)) generalOf.put(GeneralFrames.norm(e.name()), e);
+        }
+        java.util.Set<String> under = new java.util.HashSet<>();
+        for (BookStore.Entity g : generalOf.values()) {
+            for (String c : g.children()) {
                 BookStore.Entity k = byId.get(c);
-                if (k != null) out.add(node(id + "|" + c, id, k, k.name() + "  · " + k.members().size() + " section(s)" + itemCount(k)));
+                BookStore.Entity kg = k == null ? null : generalOf.get(GeneralFrames.norm(k.name()));
+                if (kg != null && kg != g) under.add(kg.id());
             }
         }
-        out.add(new Library.TreeNode(s, "#", book + ": concepts in several sections (" + several.size() + ")", Map.of()));
+        String g = "eg:" + book;
+        out.add(new TreeNode(g, "#", book + ": generalized concept tree (" + generalOf.size() + " generalized concepts)", Map.of()));
+        java.util.Set<String> reached = new java.util.HashSet<>();
+        for (BookStore.Entity e : generalOf.values()) {
+            if (!under.contains(e.id())) addGeneral(e, g, byId, generalOf, new java.util.HashSet<>(), reached, out);
+        }
+        // a cycle leaves generalized concepts no root reaches; they are roots too
+        for (BookStore.Entity e : generalOf.values()) {
+            if (!reached.contains(e.id())) addGeneral(e, g, byId, generalOf, new java.util.HashSet<>(), reached, out);
+        }
+        List<BookStore.Entity> several = entities.stream().filter(e -> e.level().equals(BookStore.Entity.CONCEPT) && !reached.contains(e.id())
+                && e.members().size() > 1).toList();
+        List<BookStore.Entity> one = entities.stream().filter(e -> e.level().equals(BookStore.Entity.CONCEPT) && !reached.contains(e.id())
+                && e.members().size() <= 1).toList();
+        String s = "es:" + book, o = "eo:" + book;
+        out.add(new TreeNode(s, "#", book + ": other concepts in several sections (" + several.size() + ")", Map.of()));
         for (BookStore.Entity e : several) out.add(node("e:" + book + "|" + e.id(), s, e, e.name() + "  · " + e.members().size() + " sections" + itemCount(e)));
-        out.add(new Library.TreeNode(o, "#", book + ": concepts in one section (" + one.size() + ")", Map.of()));
+        out.add(new TreeNode(o, "#", book + ": other concepts in one section (" + one.size() + ")", Map.of()));
         for (BookStore.Entity e : one) out.add(node("e:" + book + "|" + e.id(), o, e, e.name() + "  · " + e.members().get(0).number()));
         return out;
     }
 
-    private Library.TreeNode node(String id, String parent, BookStore.Entity e, String text) {
-        return new Library.TreeNode(id, parent, text, Map.of("data-book", book, "data-entity", e.id()));
+    /** Adds a generalized concept under {@code parent}, and its kinds under it, a generalized kind with its own kinds. */
+    private void addGeneral(BookStore.Entity e, String parent, Map<String, BookStore.Entity> byId, Map<String, BookStore.Entity> generalOf,
+            java.util.Set<String> path, java.util.Set<String> reached, List<TreeNode> out) {
+        String id = parent + "|" + e.id();
+        out.add(node(id, parent, e, e.name() + "  · " + e.children().size() + " kinds" + itemCount(e)));
+        reached.add(e.id());
+        // the concept of the book the generalized concept stands for is in the tree with it
+        for (BookStore.Entity c : entities) {
+            if (c.level().equals(BookStore.Entity.CONCEPT) && GeneralFrames.norm(c.name()).equals(GeneralFrames.norm(e.name()))) reached.add(c.id());
+        }
+        path.add(e.id());
+        for (String c : e.children()) {
+            BookStore.Entity k = byId.get(c);
+            if (k == null) continue;
+            reached.add(k.id());
+            BookStore.Entity kg = generalOf.get(GeneralFrames.norm(k.name()));
+            if (kg != null && kg != e && !path.contains(kg.id())) {
+                addGeneral(kg, id, byId, generalOf, path, reached, out);
+            } else {
+                out.add(node(id + "|" + k.id(), id, k, k.name() + "  · " + k.members().size() + " section(s)" + itemCount(k)));
+            }
+        }
+        path.remove(e.id());
+    }
+
+    private TreeNode node(String id, String parent, BookStore.Entity e, String text) {
+        return new TreeNode(id, parent, text, Map.of("data-book", book, "data-entity", e.id()));
     }
 
     private String itemCount(BookStore.Entity e) {

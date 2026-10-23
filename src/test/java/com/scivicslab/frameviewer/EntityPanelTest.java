@@ -35,14 +35,35 @@ class EntityPanelTest {
     }
 
     @Test
-    void theTreeHasTheGeneralizedConceptsWithTheirKindsThenTheConceptsOfSeveralSectionsThenOfOne() {
-        List<Library.TreeNode> t = panel().tree();
-        assertEquals("core: generalized concepts (1)", t.get(0).text());
+    void theTreeIsTheGeneralizedConceptTreeAndTheConceptsItDoesNotReachFollow() {
+        List<TreeNode> t = panel().tree();
+        assertEquals("core: generalized concept tree (1 generalized concepts)", t.get(0).text());
         assertEquals("primitive type  · 2 kinds · 1 items", t.get(1).text());
         assertEquals("integer types  · 2 section(s)", t.get(2).text());
         assertEquals(t.get(1).id(), t.get(2).parent());
-        assertEquals("core: concepts in several sections (1)", t.get(4).text());
-        assertEquals("core: concepts in one section (1)", t.get(6).text());
+        assertEquals("floating-point types  · 1 section(s)", t.get(3).text());
+        assertEquals("core: other concepts in several sections (0)", t.get(4).text(), "every concept is reached by the tree");
+        assertEquals("core: other concepts in one section (0)", t.get(5).text());
+    }
+
+    @Test
+    void aKindThatIsItselfGeneralizedHasItsOwnKindsUnderIt() {
+        var intType = new BookStore.Entity("integer type", "integer type", BookStore.Entity.CONCEPT, List.of(new BookStore.Occurrence("3.3.1", "integer type")), List.of());
+        var byte_ = new BookStore.Entity("byte", "byte", BookStore.Entity.CONCEPT, List.of(new BookStore.Occurrence("3.3.1", "byte")), List.of());
+        var long_ = new BookStore.Entity("long", "long", BookStore.Entity.CONCEPT, List.of(new BookStore.Occurrence("3.3.1", "long")), List.of());
+        var floatType = new BookStore.Entity("floating-point type", "floating-point type", BookStore.Entity.CONCEPT, List.of(new BookStore.Occurrence("3.3.2", "floating-point type")), List.of());
+        var gInt = new BookStore.Entity("general:integer type", "integer type", BookStore.Entity.GENERAL, intType.members(), List.of("byte", "long"));
+        var gPrim = new BookStore.Entity("general:primitive type", "primitive type", BookStore.Entity.GENERAL, List.of(), List.of("integer type", "floating-point type"));
+        List<TreeNode> t = new EntityPanel("core", List.of(intType, byte_, long_, floatType, gInt, gPrim), Map.of(), Map.of(), Map.of(), n -> null).tree();
+        TreeNode prim = t.stream().filter(n -> n.text().startsWith("primitive type")).findFirst().orElseThrow();
+        TreeNode integer = t.stream().filter(n -> n.text().startsWith("integer type  · 2 kinds")).findFirst().orElseThrow();
+        TreeNode b = t.stream().filter(n -> n.text().startsWith("byte")).findFirst().orElseThrow();
+        assertEquals("eg:core", prim.parent(), "the top of the tree");
+        assertEquals(prim.id(), integer.parent(), "integer type sits under primitive type, as a generalized concept");
+        assertEquals(integer.id(), b.parent(), "byte sits under integer type");
+        assertEquals(1, t.stream().filter(n -> n.text().startsWith("integer type")).count(), "integer type appears once");
+        assertTrue(t.stream().noneMatch(n -> n.parent().equals("eo:core") && n.text().startsWith("integer type")),
+                "the concept integer type is in the tree with its generalized concept, not among the others");
     }
 
     @Test

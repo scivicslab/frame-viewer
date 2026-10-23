@@ -45,7 +45,7 @@ class WorkflowPanelTest {
 
     @Test
     void theWorkflowsAreNumberedInTheOrderTheyRunAndAMissingOneSaysSo() {
-        List<Library.TreeNode> t = panel().tree();
+        List<TreeNode> t = panel().tree();
         assertEquals("1. book-to-rules", t.get(0).text());
         assertEquals("Makes every markdown file of a book into a rule file.", t.get(0).li_attr().get("title"));
         assertEquals("2. concept-tree (missing)", t.get(1).text());

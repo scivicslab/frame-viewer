@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -29,9 +28,6 @@ public class ViewerResource {
     @Inject
     Template index;
 
-    @ConfigProperty(name = "frame-viewer.rst-on-lisp-dir")
-    String rstOnLispDir;
-
     @ConfigProperty(name = "frame-viewer.works-dir")
     String worksDir;
 
@@ -47,24 +43,20 @@ public class ViewerResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance page() {
-        // the page builds code-server links from absolute paths, so it is told where frames and sources live
-        return index.data("framesDir", Path.of(rstOnLispDir, "frames").toAbsolutePath().normalize().toString())
-                .data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString());
+        // the page builds code-server links from absolute paths, so it is told where the works directory is
+        return index.data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString());
     }
 
-    /** @param tab the tab whose tree is wanted, e.g. {@code workflows}, {@code contents}, {@code concrete} */
+    /** @param tab the tab whose tree is wanted: {@code workflows}, {@code contents}, {@code sections} or {@code integrated} */
     @GET
     @jakarta.ws.rs.Path("tree")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<Library.TreeNode> tree(@QueryParam("tab") String tab) {
-        Library lib = load();
+    public List<TreeNode> tree(@QueryParam("tab") String tab) {
         return switch (tab == null ? "workflows" : tab) {
-            case "integrated" -> lib.frameTree(true);
-            case "classes" -> classPanel().tree();
             case "contents" -> bookPanel().contentsTree();
             case "sections" -> bookPanel().sectionsTree();
-            case "bookframes" -> {
-                List<Library.TreeNode> out = new java.util.ArrayList<>();
+            case "integrated" -> {
+                List<TreeNode> out = new java.util.ArrayList<>();
                 for (EntityPanel p : entityPanels(null).values()) out.addAll(p.tree());
                 yield out;
             }
@@ -105,7 +97,7 @@ public class ViewerResource {
         return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items);
     }
 
-    /** The Book frames tab's panel: one concept of a book, recognized across its sections, or a generalized concept. */
+    /** The Integrated frames tab's panel: one concept of a book, recognized across its sections, or a generalized concept. */
     @GET
     @jakarta.ws.rs.Path("book-entity")
     @Produces(MediaType.TEXT_HTML)
@@ -115,7 +107,7 @@ public class ViewerResource {
         return p == null ? "<p class=\"hint\">No book " + Html.esc(book) + ".</p>" : p.entity(id);
     }
 
-    /** @return the Book frames panel of each book, or of the one named, read from the database on every request */
+    /** @return the Integrated frames panel of each book, or of the one named, read from the database on every request */
     Map<String, EntityPanel> entityPanels(String only) {
         Map<String, EntityPanel> out = new java.util.LinkedHashMap<>();
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
@@ -187,98 +179,6 @@ public class ViewerResource {
         Path works = Path.of(worksDir).toAbsolutePath().normalize();
         String under = dir.startsWith(works) ? works.relativize(dir).toString().replace('\\', '/') : null;
         return new WorkflowPanel(workflows.stream().map(String::strip).toList(), texts, under);
-    }
-
-    /** The class tab's panel: one concept class, seen alone ({@code set} empty) or with one file of assignments. */
-    @GET
-    @jakarta.ws.rs.Path("concept-class")
-    @Produces(MediaType.TEXT_HTML)
-    public String conceptClass(@QueryParam("set") String set, @QueryParam("name") String name) {
-        if (name == null || name.isBlank()) return "<p class=\"hint\">No class given.</p>";
-        return classPanel().render(set == null ? "" : set, name);
-    }
-
-    /** Reads the class files, {@code concepts/**}, and the files of assignments, {@code assignments/**}, beside {@code frames/}. */
-    ClassPanel classPanel() {
-        Path root = Path.of(rstOnLispDir).toAbsolutePath().normalize();
-        java.util.Map<String, String> library = new java.util.LinkedHashMap<>();
-        for (Path p : lisp(root.resolve("concepts"))) library.put(root.relativize(p).toString().replace('\\', '/'), read(p));
-        java.util.Map<String, String> results = new java.util.LinkedHashMap<>();
-        for (Path p : lisp(root.resolve("assignments"))) results.put(root.relativize(p).toString().replace('\\', '/'), read(p));
-        Path works = Path.of(worksDir).toAbsolutePath().normalize();
-        String rstUnderWorks = root.startsWith(works) ? works.relativize(root).toString().replace('\\', '/') : null;
-        return new ClassPanel(library, results, works.toString(), this::readUnderWorks, rstUnderWorks);
-    }
-
-    /** The left pane of the integrated-frame tab: the frame file as it is, with the integrated frames it names linked. */
-    @GET
-    @jakarta.ws.rs.Path("raw-integrated")
-    @Produces(MediaType.TEXT_HTML)
-    public String rawIntegrated(@QueryParam("path") String path) {
-        if (path == null || path.isBlank()) return "<p class=\"hint\">No frame given.</p>";
-        Library lib = load();
-        return new RawPanel(lib, new Sources(lib, this::readUnderWorks), links()).integrated(path, readUnder(Path.of(rstOnLispDir, "frames"), path));
-    }
-
-    /**
-     * The source pane of the integrated-frame and class tabs: one source file as it is; or, with {@code view=md}, the
-     * markdown file beside it as it is.
-     */
-    @GET
-    @jakarta.ws.rs.Path("raw-source")
-    @Produces(MediaType.TEXT_HTML)
-    public String rawSource(@QueryParam("file") String file, @QueryParam("frame") String frame, @QueryParam("view") String view) {
-        if (file == null || file.isBlank()) return "<p class=\"hint\">No source given.</p>";
-        Library lib = load();
-        RawPanel panel = new RawPanel(lib, new Sources(lib, this::readUnderWorks), links());
-        String f = frame == null ? "" : frame;
-        if ("md".equals(view)) return panel.markdown(file, readUnderWorks(Sources.markdownBeside(file)), f);
-        return panel.source(file, readUnderWorks(file), f);
-    }
-
-    /** Reads the edge lists, {@code links/**}{@code /*.tsv} beside {@code frames/} ({@code FrameLinks_261022_oo01}). */
-    Links links() {
-        List<String> texts = new java.util.ArrayList<>();
-        Path dir = Path.of(rstOnLispDir).resolve("links");
-        if (Files.isDirectory(dir)) {
-            try (Stream<Path> s = Files.walk(dir)) {
-                for (Path p : s.filter(p -> p.toString().endsWith(".tsv") && Files.isRegularFile(p)).sorted().toList()) texts.add(read(p));
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-        return new Links(texts);
-    }
-
-    /** Reads every {@code .lisp} under {@code frames/}. */
-    Library load() {
-        Library lib = new Library();
-        Path root = Path.of(rstOnLispDir);
-        Path frames = root.resolve("frames");
-        for (Path p : lisp(frames)) lib.addFrame(frames.relativize(p).toString().replace('\\', '/'), read(p));
-        return lib;
-    }
-
-    /** @return the text of a file under the works directory, or null when it is missing or outside the directory */
-    String readUnderWorks(String relative) {
-        return readUnder(Path.of(worksDir), relative);
-    }
-
-    /** @return the text of a file under {@code dir}, or null when it is missing or outside {@code dir} */
-    private static String readUnder(Path dir, String relative) {
-        Path base = dir.toAbsolutePath().normalize();
-        Path p = base.resolve(relative).normalize();
-        if (!p.startsWith(base) || !Files.isRegularFile(p)) return null;
-        return read(p);
-    }
-
-    private static List<Path> lisp(Path dir) {
-        if (!Files.isDirectory(dir)) return List.of();
-        try (Stream<Path> s = Files.walk(dir)) {
-            return s.filter(p -> p.toString().endsWith(".lisp") && Files.isRegularFile(p)).sorted().toList();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     private static String read(Path p) {

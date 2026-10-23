@@ -35,11 +35,11 @@ class BookPanelTest {
 
     @Test
     void theContentsAreATreeUnderTheBookAndTheSectionsAListInTheBooksOrder() {
-        List<Library.TreeNode> c = panel().contentsTree();
+        List<TreeNode> c = panel().contentsTree();
         assertEquals("core (3 nodes)", c.get(0).text());
-        assertEquals(new Library.TreeNode("n:core|4.1.1", "n:core|4.1", "4.1.1 Classes",
+        assertEquals(new TreeNode("n:core|4.1.1", "n:core|4.1", "4.1.1 Classes",
                 java.util.Map.of("data-book", "core", "data-node", "4.1.1", "data-level", "subsection")), c.get(3));
-        List<Library.TreeNode> s = panel().sectionsTree();
+        List<TreeNode> s = panel().sectionsTree();
         assertEquals("core (3 sections)", s.get(0).text());
         assertEquals("4.1.1 Classes  · 35 chars, 2 files · rst · 3 concepts, 1 dropped · 3 relations", s.get(3).text());
         assertEquals("sb:core", s.get(3).parent());
