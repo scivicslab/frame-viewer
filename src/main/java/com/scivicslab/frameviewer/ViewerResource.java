@@ -55,11 +55,7 @@ public class ViewerResource {
         return switch (tab == null ? "workflows" : tab) {
             case "contents" -> bookPanel().contentsTree();
             case "sections" -> bookPanel().sectionsTree();
-            case "integrated" -> {
-                List<TreeNode> out = new java.util.ArrayList<>();
-                for (EntityPanel p : entityPanels(null).values()) out.addAll(p.tree());
-                yield out;
-            }
+            case "integrated" -> registryPanel().tree();
             default -> workflowPanel().tree();
         };
     }
@@ -97,43 +93,44 @@ public class ViewerResource {
         return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items);
     }
 
-    /** The Integrated frames tab's panel: one concept of a book, recognized across its sections, or a generalized concept. */
+    /** The Integrated frames tab's panel: one generalized frame of the registry. */
     @GET
-    @jakarta.ws.rs.Path("book-entity")
+    @jakarta.ws.rs.Path("registry-frame")
     @Produces(MediaType.TEXT_HTML)
-    public String bookEntity(@QueryParam("book") String book, @QueryParam("id") String id) {
-        if (book == null || id == null) return "<p class=\"hint\">No concept given.</p>";
-        EntityPanel p = entityPanels(book).get(book);
-        return p == null ? "<p class=\"hint\">No book " + Html.esc(book) + ".</p>" : p.entity(id);
+    public String registryFrame(@QueryParam("id") String id) {
+        if (id == null || id.isBlank()) return "<p class=\"hint\">No frame given.</p>";
+        return registryPanel().frame(id);
     }
 
-    /** @return the Integrated frames panel of each book, or of the one named, read from the database on every request */
-    Map<String, EntityPanel> entityPanels(String only) {
-        Map<String, EntityPanel> out = new java.util.LinkedHashMap<>();
+    /** @return the Integrated frames panel: the registry of generalized frames, read from the database on every request */
+    RegistryPanel registryPanel() {
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
-        if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return out;
+        if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return new RegistryPanel(List.of(), Map.of(), List.of(), (b, k) -> null, (b, n) -> null);
         try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
-            for (String b : store.books()) {
-                if (only != null && !only.equals(b)) continue;
-                Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> sectionItems = new java.util.HashMap<>();
-                for (var e : store.frameItems(b).entrySet()) for (var c : e.getValue().entrySet()) sectionItems.put(e.getKey() + "\t" + c.getKey(), c.getValue());
-                Map<String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> conceptOf = new java.util.HashMap<>();
-                for (var e : store.frameConcepts(b).entrySet()) for (var c : e.getValue()) conceptOf.put(e.getKey() + "\t" + c.concept(), c);
-                Map<String, String> files = new java.util.HashMap<>();
-                java.util.function.Function<String, String> rulesOf = n -> files.computeIfAbsent(n, k -> {
-                    try (var s2 = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
-                        var r = s2.sectionRules(b, k);
-                        return r == null ? null : r.rules();
-                    } catch (java.sql.SQLException ex) {
-                        return null;
-                    }
-                });
-                out.put(b, new EntityPanel(b, store.entities(b), store.entityItems(b), sectionItems, conceptOf, rulesOf));
+            var frames = store.registry();
+            Map<String, Map<String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept>> material = new java.util.HashMap<>();
+            for (var f : frames) {
+                for (var m : f.members()) {
+                    if (material.containsKey(m.book())) continue;
+                    Map<String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> c = new java.util.HashMap<>();
+                    for (var e : store.frameConcepts(m.book()).entrySet()) for (var fc : e.getValue()) c.put(e.getKey() + "\t" + fc.concept(), fc);
+                    material.put(m.book(), c);
+                }
             }
+            Map<String, String> files = new java.util.concurrent.ConcurrentHashMap<>();
+            java.util.function.BiFunction<String, String, String> rulesOf = (b, n) -> files.computeIfAbsent(b + "\t" + n, k -> {
+                try (var s2 = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
+                    var r = s2.sectionRules(b, n);
+                    return r == null ? "" : r.rules();
+                } catch (java.sql.SQLException ex) {
+                    return "";
+                }
+            });
+            return new RegistryPanel(frames, store.registryItems(), store.frameRelations(),
+                    (b, k) -> material.getOrDefault(b, Map.of()).get(k), (b, n) -> { String t = rulesOf.apply(b, n); return t.isEmpty() ? null : t; });
         } catch (java.sql.SQLException e) {
             throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
         }
-        return out;
     }
 
     private String booksUrl() {

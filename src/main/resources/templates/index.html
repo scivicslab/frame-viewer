@@ -18,7 +18,7 @@
     <span class="hint">Every name in a panel is a link to its own tab.</span></div>
   <div class="layout" data-tab="contents"><div class="tree"></div><div class="panel"><p class="hint">Select a node of a book's table of contents, as book-toc.yaml read it.</p></div></div>
   <div class="layout" data-tab="sections"><div class="tree"></div><div class="panel"><p class="hint">Select a section to read its text, as book-sections.yaml cut it.</p></div></div>
-  <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel"><p class="hint">Select a concept of the generalized concept tree: its frame (the questions an explanation of it answers, each with the rules that answer it) and its frame material from every section it appears in.</p></div></div>
+  <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel"><p class="hint">Select a generalized frame of the is-a tree: its frame (the questions an explanation of it answers, each with the rules that answer it) and its frame material from every section it appears in.</p></div></div>
   <div class="layout" data-tab="workflows"><div class="tree"></div><div class="panel"><p class="hint">Select a workflow. They are numbered in the order they run to make frames from a book.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
   <script src="vendor/jstree/jstree.min.js"></script>
@@ -65,7 +65,7 @@
       $tree.on('select_node.jstree', function (e, data) {
         var a = data.node.li_attr || {};
         if (a['data-workflow']) { load('workflows', 'workflow', { name: a['data-workflow'] }); }
-        else if (a['data-entity']) { load('integrated', 'book-entity', { book: a['data-book'], id: a['data-entity'] }); }
+        else if (a['data-frame-id']) { load('integrated', 'registry-frame', { id: a['data-frame-id'] }); }
         else if (a['data-section']) { load('sections', 'book-section', { book: a['data-book'], number: a['data-section'] }); }
         else if (a['data-node']) { load('contents', 'book-node', { book: a['data-book'], number: a['data-node'] }); }
       });
@@ -89,7 +89,7 @@
       e.preventDefault();
       load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section'), view: $(this).attr('data-view') });
     });
-    $(document).on('click', '.panel a.entity-link', function (e) { e.preventDefault(); load('integrated', 'book-entity', { book: $(this).attr('data-book'), id: $(this).attr('data-entity') }); });
+    $(document).on('click', '.panel a.frame-id-link', function (e) { e.preventDefault(); load('integrated', 'registry-frame', { id: $(this).attr('data-frame-id') }); });
     $(document).on('click', '.panel a.section-link', function (e) { e.preventDefault(); load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section') }); });
     var first = 'workflows';
     try { first = localStorage.getItem('frame-viewer-tab') || 'workflows'; } catch (e) { }
