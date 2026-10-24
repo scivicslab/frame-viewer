@@ -345,8 +345,9 @@ public final class BookPanel {
                 : com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.blocks(rules.rules(), rules.code());
         Map<String, com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groupOf = new java.util.HashMap<>();
         for (var g : groups) for (var m : g.blocks()) groupOf.put(m.block(), g);
-        sb.append("<h3>Its structure</h3><p class=\"hint\">The section split into groups of blocks, each explaining its main concept; "
-                + "each block's sentences with their relation to its nucleus (cause and motive marked); what each main concept is tied to.</p>");
+        sb.append("<h3>Its structure</h3><p class=\"hint\">The section split into the smallest units of explanation, each a run of blocks explaining one subject along one axis "
+                + "(sequence, structure or set); each block's sentences with their relation to its nucleus (cause and motive marked); "
+                + "what each unit's main concept is tied to.</p>");
         com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group open = null;
         for (var bl : blocks) {
             var g = groupOf.get(bl.name());
