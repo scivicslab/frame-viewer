@@ -52,6 +52,34 @@ public final class RegistryPanel {
         return out;
     }
 
+    /** A generalized frame as a point of the Relations tab's graph: its id, its name, how many concrete frames it holds. */
+    public record GraphNode(String id, String name, int size) {}
+
+    /** A line of the graph: from one frame to another, of one kind ({@code is-a} for the tree), and how many sections said it. */
+    public record GraphEdge(String from, String to, String kind, int count) {}
+
+    /** The Relations tab's graph: every generalized frame, the is-a tree's links and the relations between frames. */
+    public record Graph(List<GraphNode> nodes, List<GraphEdge> edges) {}
+
+    /** @return the graph of the registry: one line per frame above another in the tree, one per kind of relation between two frames */
+    public Graph graph() {
+        List<GraphNode> nodes = new ArrayList<>();
+        for (BookStore.RegistryFrame f : frames) nodes.add(new GraphNode(f.id(), f.name(), f.members().size()));
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (BookStore.RegistryFrame f : frames) {
+            if (f.parent() != null && byId.containsKey(f.parent())) counts.merge(f.id() + "\t" + f.parent() + "\tis-a (tree)", 1, Integer::sum);
+        }
+        for (BookStore.FrameRelation r : relations) {
+            if (byId.containsKey(r.from()) && byId.containsKey(r.to())) counts.merge(r.from() + "\t" + r.to() + "\t" + r.kind(), 1, Integer::sum);
+        }
+        List<GraphEdge> edges = new ArrayList<>();
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            String[] k = e.getKey().split("\t");
+            edges.add(new GraphEdge(k[0], k[1], k[2], e.getValue()));
+        }
+        return new Graph(nodes, edges);
+    }
+
     private String itemCount(String id) {
         List<BookStore.FrameItem> its = items.get(id);
         return its == null ? "" : " · " + its.size() + " items";

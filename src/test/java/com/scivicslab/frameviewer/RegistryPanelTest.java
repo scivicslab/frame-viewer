@@ -36,6 +36,14 @@ class RegistryPanelTest {
     }
 
     @Test
+    void theGraphHasEveryFrameTheTreesLinksAndTheRelations() {
+        RegistryPanel.Graph g = panel().graph();
+        assertEquals(List.of("F0001", "F0002", "F0003"), g.nodes().stream().map(RegistryPanel.GraphNode::id).toList());
+        assertEquals(2, g.nodes().get(0).size());
+        assertEquals(List.of(new RegistryPanel.GraphEdge("F0003", "F0002", "is-a (tree)", 1), new RegistryPanel.GraphEdge("F0002", "F0001", "feature", 1)), g.edges());
+    }
+
+    @Test
     void aFrameShowsItsPlaceInTheTreeItsRelationsItsFrameAndItsMaterial() {
         String html = panel().frame("F0001");
         assertTrue(html.contains("<li>a kind of: <span class=\"hint\">(the top)</span></li>"), html);

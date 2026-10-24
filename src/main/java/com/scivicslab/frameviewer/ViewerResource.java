@@ -102,6 +102,14 @@ public class ViewerResource {
         return registryPanel().frame(id);
     }
 
+    /** The Relations tab's graph: the generalized frames of the registry, the is-a tree and the relations between frames. */
+    @GET
+    @jakarta.ws.rs.Path("registry-graph")
+    @Produces(MediaType.APPLICATION_JSON)
+    public RegistryPanel.Graph registryGraph() {
+        return registryPanel().graph();
+    }
+
     /** @return the Integrated frames panel: the registry of generalized frames, read from the database on every request */
     RegistryPanel registryPanel() {
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
