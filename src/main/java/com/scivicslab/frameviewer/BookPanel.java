@@ -24,7 +24,17 @@ public final class BookPanel {
             java.util.Set<String> withRules, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept>> concepts,
             Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> relations,
             Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept>> frame,
-            Map<String, com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout> patterns) {
+            Map<String, com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout> patterns,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group>> groups) {
+
+        /** A book whose sections have not been split into groups. */
+        public Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections, java.util.Set<String> withRules,
+                Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.JudgedConcept>> concepts,
+                Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.Relation>> relations,
+                Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept>> frame,
+                Map<String, com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout> patterns) {
+            this(name, dir, outline, sections, withRules, concepts, relations, frame, patterns, Map.of());
+        }
 
         /** A book whose sections have not been asked how they explain their main concept. */
         public Book(String name, String dir, List<BookOutline.Node> outline, List<BookSections.Section> sections, java.util.Set<String> withRules,
@@ -76,7 +86,10 @@ public final class BookPanel {
             for (BookSections.Section s : b.sections()) {
                 BookOutline.Node n = nodes.get(s.number());
                 String title = n == null ? "" : n.title();
-                String text = s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")
+                var gs = b.groups().get(s.number());
+                String text = gs != null && !gs.isEmpty() ? s.number() + " " + title + "  · " + gs.size() + " group" + (gs.size() > 1 ? "s" : "") + ": "
+                        + String.join("; ", gs.stream().map(g -> g.type() + " of " + (g.concept() == null ? "?" : g.concept())).toList())
+                        : s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")
                         + (b.withRules().contains(s.number()) ? " · rst" : "")
                         + (b.concepts().containsKey(s.number()) ? " · " + conceptCount(b.concepts().get(s.number())) : "")
                         + (b.relations().containsKey(s.number()) ? " · " + b.relations().get(s.number()).size() + " relations" : "")
@@ -228,7 +241,12 @@ public final class BookPanel {
             if (abs.startsWith(worksDir)) sb.append(' ').append(Html.editWorksLink(abs.substring(worksDir.length())));
             sb.append("</div>");
         }
-        if (groups != null && !groups.isEmpty()) groups(groups, sb);
+        boolean grouped = groups != null && !groups.isEmpty();
+        if (grouped) {
+            structure(groups, rules, sb);
+            sb.append("<details class=\"earlier\"><summary>Results of the earlier steps: the main concept and each block's relation to it, "
+                    + "the concepts listed, how they relate, the concrete frame material</summary>");
+        }
         if (pattern != null) pattern(pattern, rules, sb);
         sb.append("<h3>The concepts it explains</h3>");
         var concepts = b.concepts().get(number);
@@ -262,8 +280,9 @@ public final class BookPanel {
         }
         relations(b, number, concepts, sb);
         frame(b.frame().get(number), rules == null ? null : rules.rules(), items == null ? Map.of() : items, sb);
+        if (grouped) sb.append("</details>");
         boolean rst = "rst".equals(view);
-        sb.append("<h3>Its text <span class=\"raw-views\">")
+        sb.append(grouped ? "<h3>Its source <span class=\"raw-views\">" : "<h3>Its text <span class=\"raw-views\">")
           .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? "" : " active").append("\" data-view=\"md\" data-book=\"")
           .append(Html.esc(book)).append("\" data-section=\"").append(Html.esc(number)).append("\">markdown</a>")
           .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? " active" : "").append("\" data-view=\"rst\" data-book=\"")
@@ -291,20 +310,85 @@ public final class BookPanel {
             com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.SET, "its blocks take up its members one by one",
             com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.ONE, "one block making one point");
 
-    /** The groups of consecutive blocks, each with its type, its main concept, and what each of its blocks is in it. */
-    private static void groups(List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups, StringBuilder sb) {
-        sb.append("<h3>How its blocks are grouped</h3><table class=\"concepts section-groups\"><tr><th>blocks</th><th>main concept</th><th>how</th><th>each block in it</th></tr>");
-        for (var g : groups) {
-            sb.append("<tr><td class=\"concept\">").append(Html.esc(g.first() + (g.blocks().size() > 1 ? "–" + g.last() : ""))).append("</td><td><b>")
-              .append(Html.esc(g.concept() == null ? "(not named)" : g.concept())).append("</b></td><td>").append(Html.esc(g.type()))
-              .append(" <span class=\"hint\">").append(Html.esc(GROUP_TYPES.getOrDefault(g.type(), ""))).append("</span></td><td>");
-            for (var m : g.blocks()) {
-                if (m.name() == null || m.name().isEmpty()) continue;
-                sb.append("<div>").append(Html.esc(m.block())).append(" ").append(Html.esc(m.name())).append("</div>");
+    /** The relations of cause and motive, which the writing steps ask after first; their sentences are marked. */
+    private static final java.util.Set<String> CAUSAL = java.util.Set.of("cause", "result", "reason", "consequence-n", "consequence-s",
+            "purpose", "enablement", "means", "problem-solution-n", "problem-solution-s", "explanation-argumentative");
+
+    /**
+     * The section read through its structure ({@code FrameRethink_261024_oo01}): its groups in order, the section level;
+     * under each group its blocks with what each is in the group, and each block's sentences with their relation to its
+     * nucleus, the paragraph level, cause and motive marked; and what the group's main concept is tied to, the concept
+     * level. A block in no group stands where it is, marked as left out.
+     */
+    private static void structure(List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups,
+            com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules, StringBuilder sb) {
+        var blocks = rules == null ? List.<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Block>of()
+                : com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.blocks(rules.rules(), rules.code());
+        Map<String, com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groupOf = new java.util.HashMap<>();
+        for (var g : groups) for (var m : g.blocks()) groupOf.put(m.block(), g);
+        sb.append("<h3>Its structure</h3><p class=\"hint\">The section split into groups of blocks, each explaining its main concept; "
+                + "each block's sentences with their relation to its nucleus (cause and motive marked); what each main concept is tied to.</p>");
+        com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group open = null;
+        for (var bl : blocks) {
+            var g = groupOf.get(bl.name());
+            if (open != null && g != open) {
+                sb.append("</div>");
+                concepts(open, sb);
+                sb.append("</div>");
+                open = null;
             }
-            sb.append("</td></tr>");
+            if (g != null && g != open) {
+                open = g;
+                sb.append("<div class=\"group\"><div class=\"group-head\"><span class=\"group-range\">")
+                  .append(Html.esc(g.first() + (g.first().equals(g.last()) ? "" : "–" + g.last()))).append("</span> <b>")
+                  .append(Html.esc(g.concept() == null ? "(not named)" : g.concept())).append("</b> <span class=\"group-type\">")
+                  .append(Html.esc(g.type())).append("</span> <span class=\"hint\">").append(Html.esc(GROUP_TYPES.getOrDefault(g.type(), "")))
+                  .append("</span></div><div class=\"group-blocks\">");
+            }
+            block(bl, g, sb);
         }
-        sb.append("</table>");
+        if (open != null) {
+            sb.append("</div>");
+            concepts(open, sb);
+            sb.append("</div>");
+        }
+    }
+
+    /** One block: its name, what it is in its group, and its sentences, each with its relation. */
+    private static void block(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Block bl,
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, StringBuilder sb) {
+        List<String> names = g == null ? List.of() : g.blocks().stream().filter(m -> m.block().equals(bl.name()) && m.name() != null && !m.name().isEmpty())
+                .map(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Member::name).toList();
+        sb.append("<div class=\"block").append(g == null ? " left-out" : "").append("\"><div class=\"block-head\">").append(Html.esc(bl.name()));
+        if (!names.isEmpty()) sb.append(" <i>").append(Html.esc(String.join("; ", names))).append("</i>");
+        if (g == null) sb.append(" <span class=\"hint\">in no group</span>");
+        sb.append("</div><ul class=\"sentences\">");
+        String text = bl.text();
+        int code = text.indexOf("(code)");
+        if (code == 0) {
+            sb.append("<li><pre class=\"rule-code\">").append(Html.esc(clip(text.substring(6).strip()))).append("</pre></li></ul></div>");
+            return;
+        }
+        for (String line : text.split("\n")) {
+            if (line.isBlank()) continue;
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^([a-z][a-z-]*): (.*)$").matcher(line);
+            if (m.matches()) {
+                String rel = m.group(1);
+                sb.append("<li class=\"").append(CAUSAL.contains(rel) ? "causal" : rel.equals("nucleus") ? "nucleus" : "satellite")
+                  .append("\"><span class=\"rel\">").append(Html.esc(rel)).append("</span> ").append(Html.esc(clip(m.group(2)))).append("</li>");
+            } else if (line.startsWith("- ")) {
+                sb.append("<li class=\"item\"><span class=\"rel\">item</span> ").append(Html.esc(clip(line.substring(2)))).append("</li>");
+            } else {
+                sb.append("<li class=\"nucleus\">").append(Html.esc(clip(line))).append("</li>");
+            }
+        }
+        sb.append("</ul></div>");
+    }
+
+    /** What a group's main concept is tied to: its causes and motives (step 2), its properties (step 3). */
+    private static void concepts(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, StringBuilder sb) {
+        sb.append("<div class=\"group-concepts\"><b>").append(Html.esc(g.concept() == null ? "its main concept" : g.concept()))
+          .append("</b>: causes and motives <span class=\"hint\">(step 2 not run yet)</span> · properties <span class=\"hint\">(step 3 not run yet)</span></div>");
     }
 
     /** What each pattern says of the blocks: the relation most of them bear to the main concept. */

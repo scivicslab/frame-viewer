@@ -202,7 +202,7 @@ public class ViewerResource {
     private BookPanel bookPanel(com.scivicslab.turingworkflow.plugins.rstframe.BookStore store) throws java.sql.SQLException {
         List<BookPanel.Book> books = new java.util.ArrayList<>();
         for (String b : store.books()) {
-            books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b), store.sectionsWithRules(b), store.judgedConcepts(b), store.relations(b), store.frameConcepts(b), store.patterns(b)));
+            books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b), store.sectionsWithRules(b), store.judgedConcepts(b), store.relations(b), store.frameConcepts(b), store.patterns(b), store.groups(b)));
         }
         return new BookPanel(books, Path.of(worksDir).toAbsolutePath().normalize().toString());
     }
