@@ -24,6 +24,11 @@ dl.source dd { margin-left: 16px; }
 .tab.active { background: #357; color: #fff; border-color: #357; }
 .layout { display: none; height: calc(100vh - 42px); }
 .layout .tree { width: 34%; overflow: auto; border-right: 1px solid #ddd; padding: 8px; }
+.layout .tree-col { width: 34%; flex: none; display: flex; flex-direction: column; border-right: 1px solid #ddd; min-height: 0; }
+.layout .tree-col .tree { width: auto; flex: 1; border-right: none; min-height: 0; }
+.tree-search { display: flex; align-items: baseline; gap: 8px; padding: 6px 8px 2px; }
+.tree-search input { flex: 1; min-width: 0; font-size: 0.95em; padding: 3px 6px; }
+.tree-search .count { white-space: nowrap; }
 .layout .panel { flex: 1; overflow: auto; padding: 8px 20px; position: relative; font-size: 1.1em; }
 .para { margin: 8px 0; padding: 4px 6px; border-left: 3px solid #eee; }
 .para .text { margin-top: 2px; }

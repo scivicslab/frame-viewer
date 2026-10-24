@@ -88,6 +88,40 @@ public final class BookPanel {
         return out;
     }
 
+    /** @return the nodes of the Contents tab whose number and title hold every word searched for */
+    public List<Search.Hit> searchContents(Search q) {
+        List<Search.Hit> out = new ArrayList<>();
+        for (Book b : books.values()) {
+            for (BookOutline.Node n : b.outline()) {
+                if (q.in(n.number() + " " + n.title())) out.add(new Search.Hit("n:" + b.name() + "|" + n.number(), "title"));
+            }
+        }
+        return out;
+    }
+
+    /**
+     * @param rulesOf the rule file of a section, by book and number; {@code null} when it has none
+     * @return the sections whose number and title, or else whose text and concepts, or else whose rule file holds every
+     *         word searched for, each with the first of those it matched in
+     */
+    public List<Search.Hit> searchSections(Search q, java.util.function.BiFunction<String, String, String> rulesOf) {
+        List<Search.Hit> out = new ArrayList<>();
+        for (Book b : books.values()) {
+            Map<String, BookOutline.Node> nodes = nodes(b);
+            for (BookSections.Section s : b.sections()) {
+                String id = "s:" + b.name() + "|" + s.number();
+                BookOutline.Node n = nodes.get(s.number());
+                StringBuilder concepts = new StringBuilder();
+                for (var c : b.concepts().getOrDefault(s.number(), List.of())) concepts.append(c.concept()).append('\n');
+                for (var c : b.frame().getOrDefault(s.number(), List.of())) concepts.append(c.concept()).append('\n');
+                if (q.in(s.number() + " " + (n == null ? "" : n.title()))) out.add(new Search.Hit(id, "title"));
+                else if (q.in(s.text(), concepts.toString())) out.add(new Search.Hit(id, "text"));
+                else if (b.withRules().contains(s.number()) && q.in(rulesOf.apply(b.name(), s.number()))) out.add(new Search.Hit(id, "rules"));
+            }
+        }
+        return out;
+    }
+
     /** The Contents tab's panel: one node, where it stands, what is under it, and the link to its text. */
     public String node(String book, String number) {
         Book b = books.get(book);

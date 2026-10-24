@@ -60,6 +60,42 @@ public class ViewerResource {
         };
     }
 
+    /**
+     * The search box atop a tab's tree: the nodes of that tree that hold every word of {@code q}, and where each matched.
+     * The page shows those nodes and the nodes above them, and hides the rest.
+     */
+    @GET
+    @jakarta.ws.rs.Path("search")
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<Search.Hit> search(@QueryParam("tab") String tab, @QueryParam("q") String q) {
+        Search s = new Search(q);
+        if (s.blank()) return List.of();
+        return switch (tab == null ? "workflows" : tab) {
+            case "contents" -> bookPanel().searchContents(s);
+            case "sections" -> searchSections(s);
+            case "integrated" -> withRegistry(p -> p.search(s));
+            default -> workflowPanel().search(s);
+        };
+    }
+
+    /** The Sections tab's search, with the sections' rule files read over the same connection as the books. */
+    private List<Search.Hit> searchSections(Search s) {
+        Path db = Path.of(booksDb).toAbsolutePath().normalize();
+        if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return List.of();
+        try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
+            return bookPanel(store).searchSections(s, (b, n) -> {
+                try {
+                    var r = store.sectionRules(b, n);
+                    return r == null ? null : r.rules();
+                } catch (java.sql.SQLException e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
+        }
+    }
+
     /** The Contents tab's panel: one node of a book's table of contents. */
     @GET
     @jakarta.ws.rs.Path("book-node")
@@ -152,16 +188,19 @@ public class ViewerResource {
      * on every request, so that a run of either shows on the next click. No database yet means no book.
      */
     BookPanel bookPanel() {
-        List<BookPanel.Book> books = new java.util.ArrayList<>();
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
-        if (Files.isRegularFile(Path.of(db + ".mv.db"))) {
-            try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
-                for (String b : store.books()) {
-                    books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b), store.sectionsWithRules(b), store.judgedConcepts(b), store.relations(b), store.frameConcepts(b), store.patterns(b)));
-                }
-            } catch (java.sql.SQLException e) {
-                throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
-            }
+        if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return new BookPanel(List.of(), Path.of(worksDir).toAbsolutePath().normalize().toString());
+        try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
+            return bookPanel(store);
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
+        }
+    }
+
+    private BookPanel bookPanel(com.scivicslab.turingworkflow.plugins.rstframe.BookStore store) throws java.sql.SQLException {
+        List<BookPanel.Book> books = new java.util.ArrayList<>();
+        for (String b : store.books()) {
+            books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b), store.sectionsWithRules(b), store.judgedConcepts(b), store.relations(b), store.frameConcepts(b), store.patterns(b)));
         }
         return new BookPanel(books, Path.of(worksDir).toAbsolutePath().normalize().toString());
     }

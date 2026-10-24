@@ -71,13 +71,43 @@
       });
     }
 
+    // what the search box atop each tab's tree looks in
+    var SEARCHED = {
+      workflows: 'search the workflows: names, YAML text',
+      contents: 'search the contents: numbers, titles',
+      sections: 'search the sections: titles, text, concepts, rule files',
+      integrated: 'search the frames: ids, names, concepts, questions'
+    };
     $('.layout').each(function () {
       var tab = $(this).attr('data-tab');
       var $tree = $(this).find('.tree');
+      // the nodes the server said match, by id, with where they matched; the tree shows them and the nodes above them
+      var hits = {}, asked = 0, timer = null;
       $tree.jstree({
         core: { themes: { dots: false, responsive: true }, data: { url: 'tree?tab=' + tab, dataType: 'json' } },
-        plugins: ['wholerow', 'state'],
-        state: { key: 'frame-viewer-tree-' + tab }
+        plugins: ['wholerow', 'state', 'search'],
+        state: { key: 'frame-viewer-tree-' + tab },
+        search: { show_only_matches: true, show_only_matches_children: false, search_callback: function (q, node) { return !!hits[node.id]; } }
+      });
+      var $box = $('<div class="tree-search"><input type="search"><span class="hint count"></span></div>');
+      $tree.wrap('<div class="tree-col"></div>').before($box);
+      var $count = $box.find('.count');
+      function search(q) {
+        var n = ++asked;
+        if (!q.trim()) { hits = {}; $tree.jstree('clear_search'); $count.text(''); return; }
+        $.getJSON('search', { tab: tab, q: q }, function (list) {
+          if (n !== asked) return;
+          hits = {};
+          var where = {};
+          list.forEach(function (h) { hits[h.id] = h.where; where[h.where] = (where[h.where] || 0) + 1; });
+          $tree.jstree('search', q);
+          $count.text(list.length ? list.length + ' found · ' + Object.keys(where).map(function (w) { return where[w] + ' in ' + w; }).join(', ') : 'none found');
+        });
+      }
+      $box.find('input').attr('placeholder', SEARCHED[tab]).on('input', function () {
+        var q = this.value;
+        clearTimeout(timer);
+        timer = setTimeout(function () { search(q); }, 300);
       });
       $tree.on('select_node.jstree', function (e, data) {
         var a = data.node.li_attr || {};

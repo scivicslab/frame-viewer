@@ -80,6 +80,21 @@ public final class RegistryPanel {
         return new Graph(nodes, edges);
     }
 
+    /**
+     * @return the generalized frames whose id and name, or else the concepts of whose concrete frames, or else whose
+     *         questions hold every word searched for, each with the first of those it matched in
+     */
+    public List<Search.Hit> search(Search q) {
+        List<Search.Hit> out = new ArrayList<>();
+        for (BookStore.RegistryFrame f : frames) {
+            String id = "r:" + f.id();
+            if (q.in(f.id() + " " + f.name())) { out.add(new Search.Hit(id, "name")); continue; }
+            if (f.members().stream().anyMatch(m -> q.in(m.concept()))) { out.add(new Search.Hit(id, "concept")); continue; }
+            if (items.getOrDefault(f.id(), List.of()).stream().anyMatch(it -> q.in(it.question()))) out.add(new Search.Hit(id, "question"));
+        }
+        return out;
+    }
+
     private String itemCount(String id) {
         List<BookStore.FrameItem> its = items.get(id);
         return its == null ? "" : " · " + its.size() + " items";

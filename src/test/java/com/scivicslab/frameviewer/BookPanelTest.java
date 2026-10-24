@@ -13,7 +13,7 @@ import com.scivicslab.turingworkflow.plugins.rstframe.BookSections;
 /** Pure tests: a book's table of contents as a tree, its sections as a list, and their panels. */
 class BookPanelTest {
 
-    private static BookPanel panel() {
+    static BookPanel panel() {
         List<BookOutline.Node> outline = List.of(
                 new BookOutline.Node("4", "chapter", "Objects and Classes", null, "Chap04/p001.md"),
                 new BookOutline.Node("4.1", "section", "Introduction", "4", "Chap04/p001.md"),

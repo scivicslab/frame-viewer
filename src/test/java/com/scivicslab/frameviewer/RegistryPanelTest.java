@@ -13,7 +13,7 @@ import com.scivicslab.turingworkflow.plugins.rstframe.BookStore;
 /** Pure tests: the registry of generalized frames as an is-a tree, and one frame with its relations, frame and material. */
 class RegistryPanelTest {
 
-    private static RegistryPanel panel() {
+    static RegistryPanel panel() {
         var dataType = new BookStore.RegistryFrame("F0001", "data type", null, List.of(
                 new BookStore.RegistryMember("core", "3.3.1", "integer types"), new BookStore.RegistryMember("core", "3.3.2", "floating-point types")));
         var variable = new BookStore.RegistryFrame("F0002", "variable", null, List.of(new BookStore.RegistryMember("core", "3.4", "variable")));

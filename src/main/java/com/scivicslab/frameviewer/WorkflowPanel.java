@@ -44,6 +44,16 @@ public final class WorkflowPanel {
         return out;
     }
 
+    /** @return the workflows whose name, or whose YAML text, holds every word searched for */
+    public List<Search.Hit> search(Search q) {
+        List<Search.Hit> out = new ArrayList<>();
+        for (String name : names) {
+            if (q.in(name)) out.add(new Search.Hit("w:" + name, "name"));
+            else if (q.in(texts.get(name))) out.add(new Search.Hit("w:" + name, "text"));
+        }
+        return out;
+    }
+
     /** The panel of one workflow. */
     public String render(String name) {
         String text = texts.get(name);
