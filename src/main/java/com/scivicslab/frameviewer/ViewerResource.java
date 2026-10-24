@@ -119,6 +119,7 @@ public class ViewerResource {
         List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups = null;
         List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes = List.of();
         List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties = List.of();
+        List<com.scivicslab.turingworkflow.plugins.rstframe.SectionClusters.Cluster> clusters = List.of();
         if (Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) {
             try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
                 rules = store.sectionRules(book, number);
@@ -128,11 +129,12 @@ public class ViewerResource {
                 groups = store.groups(book).get(number);
                 causes = store.causes(book).getOrDefault(number, List.of());
                 properties = store.properties(book).getOrDefault(number, List.of());
+                clusters = store.clusters(book).getOrDefault(number, List.of());
             } catch (java.sql.SQLException e) {
                 throw new IllegalStateException("could not read " + booksDb + ": " + e.getMessage(), e);
             }
         }
-        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items, groups, causes, properties);
+        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items, new BookPanel.FrameData(groups == null ? List.of() : groups, clusters, causes, properties));
     }
 
     /** The Integrated frames tab's panel: one generalized frame of the registry. */
