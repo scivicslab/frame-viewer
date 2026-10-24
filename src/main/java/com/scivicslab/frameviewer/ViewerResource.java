@@ -55,7 +55,7 @@ public class ViewerResource {
         return switch (tab == null ? "workflows" : tab) {
             case "contents" -> bookPanel().contentsTree();
             case "sections" -> bookPanel().sectionsTree();
-            case "integrated" -> registryPanel().tree();
+            case "integrated" -> withRegistry(RegistryPanel::tree);
             default -> workflowPanel().tree();
         };
     }
@@ -99,7 +99,7 @@ public class ViewerResource {
     @Produces(MediaType.TEXT_HTML)
     public String registryFrame(@QueryParam("id") String id) {
         if (id == null || id.isBlank()) return "<p class=\"hint\">No frame given.</p>";
-        return registryPanel().frame(id);
+        return withRegistry(p -> p.frame(id));
     }
 
     /** The Relations tab's graph: the generalized frames of the registry, the is-a tree and the relations between frames. */
@@ -107,35 +107,37 @@ public class ViewerResource {
     @jakarta.ws.rs.Path("registry-graph")
     @Produces(MediaType.APPLICATION_JSON)
     public RegistryPanel.Graph registryGraph() {
-        return registryPanel().graph();
+        return withRegistry(RegistryPanel::graph);
     }
 
-    /** @return the Integrated frames panel: the registry of generalized frames, read from the database on every request */
-    RegistryPanel registryPanel() {
+    /**
+     * Gives {@code use} the registry panel, over one connection to the database for the whole request: the frames, their
+     * items and relations are read at once; a frame's material and its sections' rule files only when a frame is shown,
+     * by their keys.
+     */
+    <T> T withRegistry(java.util.function.Function<RegistryPanel, T> use) {
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
-        if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return new RegistryPanel(List.of(), Map.of(), List.of(), (b, k) -> null, (b, n) -> null);
+        if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return use.apply(new RegistryPanel(List.of(), Map.of(), List.of(), (b, k) -> null, (b, n) -> null));
         try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
-            var frames = store.registry();
-            Map<String, Map<String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept>> material = new java.util.HashMap<>();
-            for (var f : frames) {
-                for (var m : f.members()) {
-                    if (material.containsKey(m.book())) continue;
-                    Map<String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameConcept> c = new java.util.HashMap<>();
-                    for (var e : store.frameConcepts(m.book()).entrySet()) for (var fc : e.getValue()) c.put(e.getKey() + "\t" + fc.concept(), fc);
-                    material.put(m.book(), c);
-                }
-            }
-            Map<String, String> files = new java.util.concurrent.ConcurrentHashMap<>();
-            java.util.function.BiFunction<String, String, String> rulesOf = (b, n) -> files.computeIfAbsent(b + "\t" + n, k -> {
-                try (var s2 = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
-                    var r = s2.sectionRules(b, n);
-                    return r == null ? "" : r.rules();
-                } catch (java.sql.SQLException ex) {
-                    return "";
-                }
-            });
-            return new RegistryPanel(frames, store.registryItems(), store.frameRelations(),
-                    (b, k) -> material.getOrDefault(b, Map.of()).get(k), (b, n) -> { String t = rulesOf.apply(b, n); return t.isEmpty() ? null : t; });
+            Map<String, String> files = new java.util.HashMap<>();
+            RegistryPanel panel = new RegistryPanel(store.registry(), store.registryItems(), store.frameRelations(),
+                    (b, key) -> {
+                        int tab = key.indexOf('\t');
+                        try {
+                            return store.frameConcept(b, key.substring(0, tab), key.substring(tab + 1));
+                        } catch (java.sql.SQLException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    },
+                    (b, n) -> files.computeIfAbsent(b + "\t" + n, k -> {
+                        try {
+                            var r = store.sectionRules(b, n);
+                            return r == null ? "" : r.rules();
+                        } catch (java.sql.SQLException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    }).transform(t -> t.isEmpty() ? null : t));
+            return use.apply(panel);
         } catch (java.sql.SQLException e) {
             throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
         }
