@@ -132,3 +132,10 @@ ul.causes li { margin: 2px 0; }
 ul.props { margin: 2px 0 4px; padding-left: 18px; }
 ul.props li { margin: 2px 0; }
 .prop-kind { display: inline-block; min-width: 3em; font-family: monospace; font-size: 0.85em; color: #2f855a; font-weight: 600; }
+ul.rels { margin: 2px 0 4px; padding-left: 18px; }
+ul.rels li { margin: 2px 0; }
+.rel-from, .rel-to { font-weight: 600; }
+.rel-link { color: #2b6cb0; font-style: italic; }
+ul.sims { margin: 2px 0 4px; padding-left: 18px; }
+ul.sims li { margin: 2px 0; }
+.sim-concept { font-weight: 600; }

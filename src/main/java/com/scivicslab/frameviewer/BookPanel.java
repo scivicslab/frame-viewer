@@ -52,12 +52,15 @@ public final class BookPanel {
         }
     }
 
+    /** A unit of this section judged similar to a unit elsewhere: the unit's ordinal, the other unit, and the more general concept they share. */
+    public record Similar(int ordinal, String otherBook, String otherNumber, String otherConcept, String common) {}
+
     /**
      * What the frame data workflow read of one section: its smallest units of explanation (groups), and the causes and
-     * motives and the properties of their main concepts.
+     * motives, the properties, the relations to other concepts and the similar concepts elsewhere of their main concepts.
      */
-    public record FrameData(List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties) {
-        public static final FrameData NONE = new FrameData(List.of(), List.of(), List.of());
+    public record FrameData(List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptRelations.Relation> relations, List<Similar> similar) {
+        public static final FrameData NONE = new FrameData(List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     private final Map<String, Book> books = new LinkedHashMap<>();
@@ -233,7 +236,7 @@ public final class BookPanel {
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
             Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items,
             List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups) {
-        return section(book, number, view, rules, listed, pattern, items, groups == null ? FrameData.NONE : new FrameData(groups, List.of(), List.of()));
+        return section(book, number, view, rules, listed, pattern, items, groups == null ? FrameData.NONE : new FrameData(groups, List.of(), List.of(), List.of(), List.of()));
     }
 
     /** As the method above, with all the frame data workflow read of the section: its units, and their causes and motives and properties. */
@@ -353,7 +356,7 @@ public final class BookPanel {
             var g = groupOf.get(bl.name());
             if (open != null && g != open) {
                 sb.append("</div>");
-                concepts(open, causes, properties, sb);
+                concepts(open, causes, properties, data.relations(), data.similar(), sb);
                 sb.append("</div>");
                 open = null;
             }
@@ -369,7 +372,7 @@ public final class BookPanel {
         }
         if (open != null) {
             sb.append("</div>");
-            concepts(open, causes, properties, sb);
+            concepts(open, causes, properties, data.relations(), data.similar(), sb);
             sb.append("</div>");
         }
     }
@@ -406,8 +409,8 @@ public final class BookPanel {
         sb.append("</ul></div>");
     }
 
-    /** What a group's main concept is tied to: its causes and motives (step 2), each with the rules it was read from; its properties (step 3). */
-    private static void concepts(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties, StringBuilder sb) {
+    /** What a unit's main concept is tied to: its causes and motives (step 2), its relations to other concepts (step 2b), its properties (step 3), each with where it was read. */
+    private static void concepts(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptRelations.Relation> relations, List<Similar> similar, StringBuilder sb) {
         var mine = causes.stream().filter(l -> l.group() == g.ordinal()).toList();
         sb.append("<div class=\"group-concepts\"><b>").append(Html.esc(g.concept() == null ? "its main concept" : g.concept())).append("</b><div>causes and motives ");
         if (mine.isEmpty()) sb.append("<span class=\"hint\">(none found)</span></div>");
@@ -417,6 +420,32 @@ public final class BookPanel {
                 sb.append("<li><span class=\"cause-from\">").append(Html.esc(l.from())).append("</span> <span class=\"cause-kind\">")
                   .append(l.kind().equals("motive") ? "is the motive for" : "leads to").append("</span> <span class=\"cause-to\">")
                   .append(Html.esc(l.to())).append("</span> <span class=\"hint\">").append(Html.esc(l.relation() + ": " + l.satelliteRule() + " → " + l.nucleusRule()))
+                  .append("</span></li>");
+            }
+            sb.append("</ul>");
+        }
+        var rels = relations.stream().filter(x -> x.group() == g.ordinal()).toList();
+        sb.append("<div class=\"rels-head\">related concepts ");
+        if (rels.isEmpty()) sb.append("<span class=\"hint\">(none found)</span></div>");
+        else {
+            sb.append("</div><ul class=\"rels\">");
+            for (var x : rels) {
+                sb.append("<li><span class=\"rel-from\">").append(Html.esc(x.from())).append("</span> <span class=\"rel-link\">").append(Html.esc(x.link()))
+                  .append("</span> <span class=\"rel-to\">").append(Html.esc(x.to())).append("</span> <span class=\"hint\">")
+                  .append(Html.esc(x.source().equals("unit") ? "the unit's " + (x.link().equals("part of") ? "part" : "member") + ", " + x.rule() : x.source() + ": " + x.rule()))
+                  .append("</span></li>");
+            }
+            sb.append("</ul>");
+        }
+        var sims = similar.stream().filter(x -> x.ordinal() == g.ordinal()).toList();
+        sb.append("<div class=\"sims-head\">similar concepts ");
+        if (sims.isEmpty()) sb.append("<span class=\"hint\">(none found)</span></div>");
+        else {
+            sb.append("</div><ul class=\"sims\">");
+            for (var x : sims) {
+                sb.append("<li><a href=\"#\" class=\"section-link\" data-book=\"").append(Html.esc(x.otherBook())).append("\" data-section=\"")
+                  .append(Html.esc(x.otherNumber())).append("\">").append(Html.esc(x.otherNumber())).append("</a> <span class=\"sim-concept\">")
+                  .append(Html.esc(x.otherConcept())).append("</span> <span class=\"hint\">both ").append(Html.esc(x.common()))
                   .append("</span></li>");
             }
             sb.append("</ul>");

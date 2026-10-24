@@ -124,6 +124,8 @@ public class ViewerResource {
         List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups = null;
         List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes = List.of();
         List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties = List.of();
+        List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptRelations.Relation> relations = List.of();
+        List<BookPanel.Similar> similar = List.of();
         if (Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) {
             Loaded l = loaded();
             Extras x = l.extras().get(book);
@@ -139,9 +141,12 @@ public class ViewerResource {
                 groups = x.groups().get(number);
                 causes = x.causes().getOrDefault(number, List.of());
                 properties = x.properties().getOrDefault(number, List.of());
+                relations = x.relations().getOrDefault(number, List.of());
+                // a pair judged from both sides is shown once
+                similar = x.similar().getOrDefault(number, List.of()).stream().distinct().toList();
             }
         }
-        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items, new BookPanel.FrameData(groups == null ? List.of() : groups, causes, properties));
+        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items, new BookPanel.FrameData(groups == null ? List.of() : groups, causes, properties, relations, similar));
     }
 
     /** The Integrated frames tab's panel: one generalized frame of the registry. */
@@ -211,7 +216,8 @@ public class ViewerResource {
     /** What the panels of one book read of the database besides the book itself: each section's slice, by section number. */
     record Extras(Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept>> listed, Map<String, com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout> patterns,
             Map<String, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>>> items, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group>> groups,
-            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link>> causes, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property>> properties) {}
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link>> causes, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property>> properties,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptRelations.Relation>> relations, Map<String, List<BookPanel.Similar>> similar) {}
 
     /** The books as last read, and the database file's state they were read at. */
     record Loaded(String stamp, BookPanel panel, Map<String, Extras> extras) {}
@@ -238,9 +244,18 @@ public class ViewerResource {
         } else {
             try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
                 Map<String, Extras> extras = new java.util.HashMap<>();
+                // the similar concepts of each unit, judged from either side, by book and section
+                Map<String, Map<String, List<BookPanel.Similar>>> similar = new java.util.HashMap<>();
+                for (var r : store.similarities()) {
+                    similar.computeIfAbsent(r.book(), k -> new java.util.HashMap<>()).computeIfAbsent(r.number(), k -> new java.util.ArrayList<>())
+                            .add(new BookPanel.Similar(r.ordinal(), r.otherBook(), r.otherNumber(), r.otherConcept(), r.common()));
+                    similar.computeIfAbsent(r.otherBook(), k -> new java.util.HashMap<>()).computeIfAbsent(r.otherNumber(), k -> new java.util.ArrayList<>())
+                            .add(new BookPanel.Similar(r.otherOrdinal(), r.book(), r.number(), r.concept(), r.common()));
+                }
                 for (String b : store.books()) {
                     extras.put(b, new Extras(store.listedConcepts(b), store.patterns(b), store.frameItems(b), store.groups(b), store.causes(b),
-                            store.properties(b)));
+                            store.properties(b), store.relationsOfConcepts(b),
+                            similar.getOrDefault(b, Map.of())));
                 }
                 l = new Loaded(stamp, bookPanel(store), extras);
             } catch (java.sql.SQLException e) {
