@@ -53,11 +53,11 @@ public final class BookPanel {
     }
 
     /**
-     * What the frame data workflow read of one section: its groups, the clusters above them, and the causes and motives
-     * and the properties of the groups' main concepts.
+     * What the frame data workflow read of one section: its smallest units of explanation (groups), and the causes and
+     * motives and the properties of their main concepts.
      */
-    public record FrameData(List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups, List<com.scivicslab.turingworkflow.plugins.rstframe.SectionClusters.Cluster> clusters, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties) {
-        public static final FrameData NONE = new FrameData(List.of(), List.of(), List.of(), List.of());
+    public record FrameData(List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties) {
+        public static final FrameData NONE = new FrameData(List.of(), List.of(), List.of());
     }
 
     private final Map<String, Book> books = new LinkedHashMap<>();
@@ -95,7 +95,7 @@ public final class BookPanel {
                 BookOutline.Node n = nodes.get(s.number());
                 String title = n == null ? "" : n.title();
                 var gs = b.groups().get(s.number());
-                String text = gs != null && !gs.isEmpty() ? s.number() + " " + title + "  · " + gs.size() + " group" + (gs.size() > 1 ? "s" : "") + ": "
+                String text = gs != null && !gs.isEmpty() ? s.number() + " " + title + "  · " + gs.size() + " unit" + (gs.size() > 1 ? "s" : "") + ": "
                         + String.join("; ", gs.stream().map(g -> g.type() + " of " + (g.concept() == null ? "?" : g.concept())).toList())
                         : s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")
                         + (b.withRules().contains(s.number()) ? " · rst" : "")
@@ -233,10 +233,10 @@ public final class BookPanel {
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
             Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items,
             List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups) {
-        return section(book, number, view, rules, listed, pattern, items, groups == null ? FrameData.NONE : new FrameData(groups, List.of(), List.of(), List.of()));
+        return section(book, number, view, rules, listed, pattern, items, groups == null ? FrameData.NONE : new FrameData(groups, List.of(), List.of()));
     }
 
-    /** As the method above, with all the frame data workflow read of the section: its groups, their clusters, causes and motives, and properties. */
+    /** As the method above, with all the frame data workflow read of the section: its units, and their causes and motives and properties. */
     public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
             List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed,
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
@@ -325,8 +325,7 @@ public final class BookPanel {
     private static final Map<String, String> GROUP_TYPES = Map.of(
             com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.SEQUENCE, "its blocks go through it in order",
             com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.STRUCTURE, "its blocks take it apart into its parts",
-            com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.SET, "its blocks take up its members one by one",
-            com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.ONE, "one block making one point");
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.SET, "its blocks take up its members one by one");
 
     /** The relations of cause and motive, which the writing steps ask after first; their sentences are marked. */
     private static final java.util.Set<String> CAUSAL = java.util.Set.of("cause", "result", "reason", "consequence-n", "consequence-s",
@@ -355,12 +354,10 @@ public final class BookPanel {
                 sb.append("</div>");
                 concepts(open, causes, properties, sb);
                 sb.append("</div>");
-                closeCluster(data, open, sb);
                 open = null;
             }
             if (g != null && g != open) {
                 open = g;
-                openCluster(data, g, sb);
                 sb.append("<div class=\"group\"><div class=\"group-head\"><span class=\"group-range\">")
                   .append(Html.esc(g.first() + (g.first().equals(g.last()) ? "" : "–" + g.last()))).append("</span> <b>")
                   .append(Html.esc(g.concept() == null ? "(not named)" : g.concept())).append("</b> <span class=\"group-type\">")
@@ -373,30 +370,9 @@ public final class BookPanel {
             sb.append("</div>");
             concepts(open, causes, properties, sb);
             sb.append("</div>");
-            closeCluster(data, open, sb);
         }
     }
 
-    /** Opens the box of the cluster a group starts: its groups, by its type, explain one larger thing. */
-    private static void openCluster(FrameData data, com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, StringBuilder sb) {
-        for (var c : data.clusters()) {
-            if (c.first() != g.ordinal()) continue;
-            sb.append("<div class=\"cluster\"><div class=\"cluster-head\"><span class=\"group-range\">g").append(c.first()).append("–g").append(c.last())
-              .append("</span> <b>").append(Html.esc(c.concept())).append("</b> <span class=\"group-type\">").append(Html.esc(c.type()))
-              .append("</span> <span class=\"hint\">").append(Html.esc(CLUSTER_TYPES.getOrDefault(c.type(), ""))).append("</span></div>");
-        }
-    }
-
-    /** Closes the box of the cluster a group ends. */
-    private static void closeCluster(FrameData data, com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, StringBuilder sb) {
-        for (var c : data.clusters()) if (c.last() == g.ordinal()) sb.append("</div>");
-    }
-
-    /** How a cluster's groups explain the larger thing, by its type. */
-    private static final Map<String, String> CLUSTER_TYPES = Map.of(
-            "sequence", "its groups go through it in order",
-            "structure", "its groups take it apart into its parts",
-            "set", "its groups take up its members or kinds one by one");
 
     /** One block: its name, what it is in its group, and its sentences, each with its relation. */
     private static void block(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Block bl,
@@ -405,7 +381,7 @@ public final class BookPanel {
                 .map(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Member::name).toList();
         sb.append("<div class=\"block").append(g == null ? " left-out" : "").append("\"><div class=\"block-head\">").append(Html.esc(bl.name()));
         if (!names.isEmpty()) sb.append(" <i>").append(Html.esc(String.join("; ", names))).append("</i>");
-        if (g == null) sb.append(" <span class=\"hint\">in no group</span>");
+        if (g == null) sb.append(" <span class=\"hint\">in no unit</span>");
         sb.append("</div><ul class=\"sentences\">");
         String text = bl.text();
         int code = text.indexOf("(code)");

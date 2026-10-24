@@ -235,7 +235,7 @@ class BookPanelTest {
                 (defrule b3/1 -> "A note aside.")
                 """;
         var groups = List.of(
-                new com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group(1, "one", "reason for security",
+                new com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group(1, "sequence", "reason for security",
                         List.of(new com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Member("b1", ""))),
                 new com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group(2, "set", "attacks Java prevents",
                         List.of(new com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Member("b2", "stack overrun"),
@@ -244,19 +244,13 @@ class BookPanelTest {
                 List.of(new BookOutline.Node("1.2.5", "subsection", "Secure", null, "f.md")),
                 List.of(new BookSections.Section("1.2.5", "x", List.of("f.md"))), java.util.Set.of("1.2.5"), java.util.Map.of(), java.util.Map.of(),
                 java.util.Map.of(), java.util.Map.of(), java.util.Map.of("1.2.5", groups))), "/w");
-        assertEquals("1.2.5 Secure  · 2 groups: one of reason for security; set of attacks Java prevents", p.sectionsTree().get(1).text());
+        assertEquals("1.2.5 Secure  · 2 units: sequence of reason for security; set of attacks Java prevents", p.sectionsTree().get(1).text());
         String html = p.section("core", "1.2.5", "md", new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules("1.2.5", rules, java.util.Map.of(), 0),
                 null, null, java.util.Map.of(), groups);
         assertTrue(html.contains("<span class=\"group-range\">b2</span> <b>attacks Java prevents</b> <span class=\"group-type\">set</span>"), html);
         assertTrue(html.contains("<li class=\"causal\"><span class=\"rel\">purpose</span> Toward that end"), html);
         assertTrue(html.contains("b2 <i>stack overrun; memory corruption</i>"), html);
-        assertTrue(html.contains("<div class=\"block left-out\"><div class=\"block-head\">b3 <span class=\"hint\">in no group</span>"), html);
+        assertTrue(html.contains("<div class=\"block left-out\"><div class=\"block-head\">b3 <span class=\"hint\">in no unit</span>"), html);
         assertTrue(html.indexOf("Its structure") < html.indexOf("<details class=\"earlier\">") && html.indexOf("</details>") < html.indexOf("Its source"), html);
-        String clustered = p.section("core", "1.2.5", "md", new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules("1.2.5", rules, java.util.Map.of(), 0),
-                null, null, java.util.Map.of(), new BookPanel.FrameData(groups,
-                        List.of(new com.scivicslab.turingworkflow.plugins.rstframe.SectionClusters.Cluster(1, "sequence", "Java security", 1, 2)), List.of(), List.of()));
-        int box = clustered.indexOf("<div class=\"cluster\">");
-        assertTrue(box > 0 && clustered.indexOf("<b>Java security</b>") > box && clustered.indexOf("<b>reason for security</b>") > box, clustered);
-        assertTrue(clustered.indexOf("<b>attacks Java prevents</b>") < clustered.indexOf("block left-out"), "the cluster closes before the block in no group");
     }
 }
