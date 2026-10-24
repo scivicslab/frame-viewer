@@ -1,4 +1,4 @@
-// The Relations tab: the generalized frames of the registry and the relations between them, drawn around one frame
+// The drawing in the Integrated frames tab: the generalized frames of the registry and the relations between them, drawn around one frame
 // with Cytoscape.js. The frame chosen sits in the middle; the frames it is related to, up to the depth chosen, are laid
 // out around it by fCoSE. The is-a tree is drawn as nesting: a frame shown with the frame above it in the tree sits in
 // that frame's box. The other relations are arrows, coloured by kind. Clicking a frame moves the middle to it and shows
@@ -23,7 +23,7 @@
       { selector: 'node', style: {
         'shape': 'round-rectangle', 'background-color': '#edf2f7', 'border-width': 1.2, 'border-color': '#4a5568',
         'label': 'data(label)', 'font-size': 11, 'color': '#1a202c', 'text-valign': 'center', 'text-halign': 'center',
-        'text-wrap': 'wrap', 'text-max-width': 120, 'padding': 6, 'width': 'label', 'height': 'label'
+        'text-wrap': 'wrap', 'text-max-width': 120, 'padding': 4, 'width': 'data(w)', 'height': 'data(h)'
       } },
       { selector: 'node:parent', style: {
         'background-color': '#ebf8ff', 'background-opacity': 0.55, 'border-color': '#2b6cb0', 'border-width': 1.5,
@@ -49,6 +49,8 @@
   window.RelationsGraph = function ($pane, onFocus) {
     var graph = null, byId = {}, adj = {}, parentOf = {}, shown = {}, depth = 1, focusId = null;
     var cy = cytoscape({ container: $pane.find('.graph')[0], style: styles(), wheelSensitivity: 0.25, minZoom: 0.15, maxZoom: 3 });
+    // fitting a few frames would blow them up; a fit stops at this zoom
+    var FIT_ZOOM = 1.2;
     window.relationsCy = cy;
 
     function kindOn(k) { return shown[k] !== false; }
@@ -76,9 +78,6 @@
           adj[e.to].push({ other: e.from, edge: e });
           if (e.kind === 'is-a (tree)') parentOf[e.from] = e.to;
         });
-        var $list = $pane.find('#graph-frames').empty();
-        g.nodes.forEach(function (n) { $list.append($('<option>').attr('value', n.id + ' ' + n.name)); });
-        $pane.find('.graph-count').text(g.nodes.length + ' frames, ' + g.edges.length + ' lines');
         if (done) done();
       });
     }
@@ -106,7 +105,10 @@
       // the is-a tree as nesting: a frame whose parent is shown sits in the parent's box
       var nest = kindOn('is-a (tree)');
       ids.forEach(function (id) {
-        var n = byId[id], data = { id: id, label: n.name + (n.size > 1 ? '  (' + n.size + ')' : ''), name: n.name, size: n.size };
+        var n = byId[id], label = n.name + (n.size > 1 ? ' (' + n.size + ')' : '');
+        // the box fits its name: about 6.5 pixels a letter at 11 pixels, wrapped at 120
+        var lines = Math.ceil(label.length * 6.5 / 120), w = Math.min(128, 14 + label.length * 6.5), h = 10 + lines * 14;
+        var data = { id: id, label: label, name: n.name, size: n.size, w: w, h: h };
         if (nest && parentOf[id] && inSet[parentOf[id]]) data.parent = parentOf[id];
         els.push({ group: 'nodes', data: data, classes: id === centre ? 'centre' : '' });
       });
@@ -127,9 +129,10 @@
       cy.layout({
         name: window.cytoscapeFcose ? 'fcose' : 'cose', animate: true, animationDuration: 500, randomize: true, fit: true,
         padding: 30, nodeRepulsion: 9000, idealEdgeLength: 110, nodeSeparation: 80, packComponents: true,
-        nestingFactor: 0.6, gravity: 0.3, numIter: 2500
+        nestingFactor: 0.6, gravity: 0.3, numIter: 2500,
+        stop: function () { cy.fit(cy.elements(), 30); if (cy.zoom() > FIT_ZOOM) { cy.zoom(FIT_ZOOM); cy.center(); } }
       }).run();
-      $pane.find('.graph-focus').text(byId[id].id + ' ' + byId[id].name + ' · ' + (ids.length - 1) + ' related frame(s)');
+      $pane.find('.graph-focus').removeClass('hint').text(byId[id].id + ' ' + byId[id].name + ' · ' + (ids.length - 1) + ' related frame(s)');
       if (!keepPanel && onFocus) onFocus(id);
     }
 
@@ -144,25 +147,17 @@
     cy.on('mouseover', 'edge', function (ev) { ev.target.addClass('labelled'); });
     cy.on('mouseout', 'edge', function (ev) { ev.target.removeClass('labelled'); });
 
-    $pane.find('.graph-search').on('change', function () {
-      var id = (this.value || '').split(' ')[0];
-      if (byId[id]) focus(id);
-    });
     $pane.find('.graph-depth').on('change', function () { depth = parseInt(this.value, 10) || 1; if (focusId) focus(focusId, true); });
     legend();
 
     return {
-      // the first time the tab is shown: the graph is read, and the frame with the most relations is put in the middle
-      start: function () {
+      // the tab shown: the drawing takes its size; the graph is read once
+      start: function () { cy.resize(); if (!graph) load(); },
+      // a frame chosen elsewhere (the tree, a link): drawn in the middle once the graph is read
+      focus: function (id, keepPanel) {
         cy.resize();
-        if (graph) return;
-        load(function () {
-          var best = null;
-          graph.nodes.forEach(function (n) { if (!best || adj[n.id].length > adj[best].length) best = n.id; });
-          if (best) focus(best);
-        });
-      },
-      focus: focus
+        if (graph) focus(id, keepPanel); else load(function () { focus(id, keepPanel); });
+      }
     };
   };
 })();

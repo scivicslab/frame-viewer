@@ -14,21 +14,20 @@
       <a href="#" class="tab" data-tab="contents" title="1-1. a book's table of contents">Contents</a>
       <a href="#" class="tab" data-tab="sections" title="1-2. a book's text cut into its sections">Sections</a>
       <a href="#" class="tab" data-tab="integrated" title="the generalized concept tree: the concepts of a book across its sections, and the generalized concepts above them">Integrated frames</a>
-      <a href="#" class="tab" data-tab="relations" title="the generalized frames and the relations between them, drawn around one frame">Relations</a>
     </span>
     <span class="hint">Every name in a panel is a link to its own tab.</span></div>
   <div class="layout" data-tab="contents"><div class="tree"></div><div class="panel"><p class="hint">Select a node of a book's table of contents, as book-toc.yaml read it.</p></div></div>
   <div class="layout" data-tab="sections"><div class="tree"></div><div class="panel"><p class="hint">Select a section to read its text, as book-sections.yaml cut it.</p></div></div>
-  <div class="layout" data-tab="integrated"><div class="tree"></div><div class="panel"><p class="hint">Select a generalized frame of the is-a tree: its frame (the questions an explanation of it answers, each with the rules that answer it) and its frame material from every section it appears in.</p></div></div>
-  <div class="layout" data-tab="relations"><div class="graph-pane">
-    <div class="graph-bar">
-      <input class="graph-search" list="graph-frames" placeholder="a frame: its id or name" size="34"><datalist id="graph-frames"></datalist>
-      <label>depth <select class="graph-depth"><option>1</option><option>2</option><option>3</option></select></label>
-      <span class="graph-focus"></span> <span class="hint graph-count"></span>
-      <div class="graph-legend"></div>
+  <div class="layout" data-tab="integrated"><div class="tree"></div><div class="right-col">
+    <div class="graph-pane">
+      <div class="graph-bar">
+        <span class="graph-focus hint">Click a generalized frame in the tree: its relations are drawn here, the frame itself below.</span>
+        <label>depth <select class="graph-depth"><option>1</option><option>2</option><option>3</option></select></label>
+        <div class="graph-legend"></div>
+      </div>
+      <div class="graph"></div>
     </div>
-    <div class="graph"></div>
-  </div><div class="panel"><p class="hint">Click a frame in the graph to put it in the middle and read it here.</p></div></div>
+    <div class="panel"></div></div></div>
   <div class="layout" data-tab="workflows"><div class="tree"></div><div class="panel"><p class="hint">Select a workflow. They are numbered in the order they run to make frames from a book.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
   <script src="vendor/jstree/jstree.min.js"></script>
@@ -49,7 +48,7 @@
       $('.tab').removeClass('active');
       $('.tab[data-tab="' + tab + '"]').addClass('active');
       try { localStorage.setItem('frame-viewer-tab', tab); } catch (e) { }
-      if (tab === 'relations' && relations) relations.start();
+      if (tab === 'integrated' && relations) relations.start();
     }
     var relations = null;
 
@@ -82,7 +81,7 @@
       $tree.on('select_node.jstree', function (e, data) {
         var a = data.node.li_attr || {};
         if (a['data-workflow']) { load('workflows', 'workflow', { name: a['data-workflow'] }); }
-        else if (a['data-frame-id']) { load('integrated', 'registry-frame', { id: a['data-frame-id'] }); }
+        else if (a['data-frame-id']) { openFrame(a['data-frame-id']); }
         else if (a['data-section']) { load('sections', 'book-section', { book: a['data-book'], number: a['data-section'] }); }
         else if (a['data-node']) { load('contents', 'book-node', { book: a['data-book'], number: a['data-node'] }); }
       });
@@ -106,17 +105,18 @@
       e.preventDefault();
       load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section'), view: $(this).attr('data-view') });
     });
-    // a frame named in a panel: in the Relations tab it moves the graph's middle to it, elsewhere it opens in Integrated frames
-    $(document).on('click', '.panel a.frame-id-link', function (e) {
-      e.preventDefault();
-      var id = $(this).attr('data-frame-id');
-      if (currentTab === 'relations' && relations) relations.focus(id); else load('integrated', 'registry-frame', { id: id });
-    });
-    relations = RelationsGraph(pane('relations').find('.graph-pane'), function (id) { load('relations', 'registry-frame', { id: id }); });
+    // a generalized frame opens in Integrated frames: its relations drawn above, the frame itself below
+    function openFrame(id) {
+      load('integrated', 'registry-frame', { id: id });
+      if (relations) relations.focus(id, true);
+    }
+    $(document).on('click', '.panel a.frame-id-link', function (e) { e.preventDefault(); openFrame($(this).attr('data-frame-id')); });
+    // a frame clicked in the drawing moves the middle to it and shows it below
+    relations = RelationsGraph(pane('integrated').find('.graph-pane'), function (id) { load('integrated', 'registry-frame', { id: id }); });
     $(document).on('click', '.panel a.section-link', function (e) { e.preventDefault(); load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section') }); });
     var first = 'workflows';
     try { first = localStorage.getItem('frame-viewer-tab') || 'workflows'; } catch (e) { }
-    // a tab remembered from before may have been removed (Tags, Concrete frames, Classes, Book frames)
+    // a tab remembered from before may have been removed (Tags, Concrete frames, Classes, Book frames, Relations)
     if (!pane(first).length) first = 'workflows';
     showTab(first);
   });
