@@ -94,10 +94,4 @@ ul.pattern-breakdown { margin: 4px 0 8px; padding-left: 1.2em; }
 .graph-legend { margin-top: 4px; }
 .graph-kind { margin-right: 12px; white-space: nowrap; cursor: pointer; }
 .graph-kind .swatch { display: inline-block; width: 18px; height: 4px; margin: 0 4px 3px 2px; vertical-align: middle; }
-svg.graph { flex: 1; width: 100%; background: #fcfcfd; cursor: grab; }
-svg.graph .node circle { fill: #edf2f7; stroke: #4a5568; stroke-width: 1.2; cursor: pointer; }
-svg.graph .node:hover circle { fill: #bee3f8; }
-svg.graph .node.centre circle { fill: #2b6cb0; stroke: #1a365d; }
-svg.graph .node text { font-size: 12px; fill: #1a202c; pointer-events: none; paint-order: stroke; stroke: #fcfcfd; stroke-width: 3px; }
-svg.graph .node.centre text { font-weight: bold; font-size: 14px; }
-svg.graph path.dim { opacity: 0.12; }
+div.graph { flex: 1; width: 100%; min-height: 300px; background: #fcfcfd; }

@@ -27,11 +27,15 @@
       <span class="graph-focus"></span> <span class="hint graph-count"></span>
       <div class="graph-legend"></div>
     </div>
-    <svg class="graph" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="graph"></div>
   </div><div class="panel"><p class="hint">Click a frame in the graph to put it in the middle and read it here.</p></div></div>
   <div class="layout" data-tab="workflows"><div class="tree"></div><div class="panel"><p class="hint">Select a workflow. They are numbered in the order they run to make frames from a book.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
   <script src="vendor/jstree/jstree.min.js"></script>
+  <script src="vendor/cytoscape/cytoscape.min.js"></script>
+  <script src="vendor/cytoscape/layout-base.js"></script>
+  <script src="vendor/cytoscape/cose-base.js"></script>
+  <script src="vendor/cytoscape/cytoscape-fcose.js"></script>
   <script src="graph.js"></script>
   <script>
   $(function () {

@@ -1,41 +1,66 @@
-// The Relations tab: the generalized frames of the registry and the relations between them, drawn around one frame.
-// The frame chosen sits in the middle; the frames it is related to, up to the depth chosen, are laid out around it by a
-// small force simulation (frames push each other apart, a relation pulls its two frames together). Clicking a frame
-// moves the middle to it and shows its panel on the right.
+// The Relations tab: the generalized frames of the registry and the relations between them, drawn around one frame
+// with Cytoscape.js. The frame chosen sits in the middle; the frames it is related to, up to the depth chosen, are laid
+// out around it by fCoSE. The is-a tree is drawn as nesting: a frame shown with the frame above it in the tree sits in
+// that frame's box. The other relations are arrows, coloured by kind. Clicking a frame moves the middle to it and shows
+// its panel on the right; the view zooms and pans with the wheel and the mouse.
 (function () {
   var KINDS = {
-    'is-a (tree)': { color: '#2b6cb0', label: 'is-a (the tree)', width: 2.6 },
-    'is-a': { color: '#63b3ed', label: 'is-a (a section said)', width: 1.6, dash: '5,3' },
-    'part-of': { color: '#2f855a', label: 'part-of', width: 1.6 },
-    'feature': { color: '#b7791f', label: 'feature', width: 1.6 },
-    'operation': { color: '#805ad5', label: 'operation', width: 1.6 },
-    'other': { color: '#a0aec0', label: 'other', width: 1.2 }
+    'is-a (tree)': { color: '#2b6cb0', label: 'is-a (the tree, drawn as a box)', style: 'solid', width: 2.5 },
+    'is-a': { color: '#4299e1', label: 'is-a (a section said)', style: 'dashed', width: 1.8 },
+    'part-of': { color: '#2f855a', label: 'part-of', style: 'solid', width: 1.8 },
+    'feature': { color: '#b7791f', label: 'feature', style: 'solid', width: 1.8 },
+    'operation': { color: '#805ad5', label: 'operation', style: 'solid', width: 1.8 },
+    'other': { color: '#a0aec0', label: 'other', style: 'solid', width: 1.3 }
   };
   var MAX_NODES = 70;
-  var NS = 'http://www.w3.org/2000/svg';
 
-  function el(name, attrs) {
-    var e = document.createElementNS(NS, name);
-    for (var k in attrs) e.setAttribute(k, attrs[k]);
-    return e;
+  if (window.cytoscape && window.cytoscapeFcose) cytoscape.use(cytoscapeFcose);
+
+  function cls(kind) { return 'k-' + kind.replace(/\W+/g, '-'); }
+
+  function styles() {
+    var s = [
+      { selector: 'node', style: {
+        'shape': 'round-rectangle', 'background-color': '#edf2f7', 'border-width': 1.2, 'border-color': '#4a5568',
+        'label': 'data(label)', 'font-size': 11, 'color': '#1a202c', 'text-valign': 'center', 'text-halign': 'center',
+        'text-wrap': 'wrap', 'text-max-width': 120, 'padding': 6, 'width': 'label', 'height': 'label'
+      } },
+      { selector: 'node:parent', style: {
+        'background-color': '#ebf8ff', 'background-opacity': 0.55, 'border-color': '#2b6cb0', 'border-width': 1.5,
+        'border-style': 'solid', 'text-valign': 'top', 'text-halign': 'center', 'font-weight': 'bold', 'color': '#2c5282',
+        'padding': 14, 'shape': 'round-rectangle'
+      } },
+      { selector: 'node.centre', style: { 'background-color': '#2b6cb0', 'color': '#ffffff', 'border-color': '#1a365d', 'font-weight': 'bold', 'font-size': 13 } },
+      { selector: 'node:parent.centre', style: { 'background-color': '#bee3f8', 'color': '#1a365d' } },
+      { selector: 'node.faded, edge.faded', style: { 'opacity': 0.15 } },
+      { selector: 'edge', style: {
+        'width': 1.5, 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'arrow-scale': 0.9, 'line-color': '#a0aec0',
+        'target-arrow-color': '#a0aec0', 'font-size': 10, 'text-rotation': 'autorotate', 'text-background-color': '#ffffff',
+        'text-background-opacity': 0.85, 'text-background-padding': 2, 'color': '#2d3748'
+      } },
+      { selector: 'edge.labelled', style: { 'label': 'data(kind)' } }
+    ];
+    Object.keys(KINDS).forEach(function (k) {
+      s.push({ selector: 'edge.' + cls(k), style: { 'line-color': KINDS[k].color, 'target-arrow-color': KINDS[k].color, 'line-style': KINDS[k].style, 'width': KINDS[k].width } });
+    });
+    return s;
   }
 
   window.RelationsGraph = function ($pane, onFocus) {
-    var graph = null, byId = {}, adj = {}, shown = {}, depth = 1, focusId = null;
-    var $svg = $pane.find('svg.graph'), svg = $svg[0];
-    var view = { x: -500, y: -350, w: 1000, h: 700 };
+    var graph = null, byId = {}, adj = {}, parentOf = {}, shown = {}, depth = 1, focusId = null;
+    var cy = cytoscape({ container: $pane.find('.graph')[0], style: styles(), wheelSensitivity: 0.25, minZoom: 0.15, maxZoom: 3 });
+    window.relationsCy = cy;
 
     function kindOn(k) { return shown[k] !== false; }
 
     function legend() {
       var $l = $pane.find('.graph-legend').empty();
       Object.keys(KINDS).forEach(function (k) {
-        var id = 'kind-' + k.replace(/\W+/g, '-');
         var $c = $('<label class="graph-kind"></label>');
-        $('<input type="checkbox">').attr('id', id).prop('checked', kindOn(k)).on('change', function () {
+        $('<input type="checkbox">').prop('checked', kindOn(k)).on('change', function () {
           shown[k] = this.checked; if (focusId) focus(focusId, true);
         }).appendTo($c);
-        $('<span class="swatch"></span>').css({ background: KINDS[k].color }).appendTo($c);
+        $('<span class="swatch"></span>').css({ background: KINDS[k].color, opacity: KINDS[k].style === 'dashed' ? 0.6 : 1 }).appendTo($c);
         $c.append(document.createTextNode(KINDS[k].label));
         $l.append($c);
       });
@@ -43,12 +68,13 @@
 
     function load(done) {
       $.getJSON('registry-graph', function (g) {
-        graph = g; byId = {}; adj = {};
+        graph = g; byId = {}; adj = {}; parentOf = {};
         g.nodes.forEach(function (n) { byId[n.id] = n; adj[n.id] = []; });
         g.edges.forEach(function (e) {
           if (!adj[e.from] || !adj[e.to]) return;
           adj[e.from].push({ other: e.to, edge: e });
           adj[e.to].push({ other: e.from, edge: e });
+          if (e.kind === 'is-a (tree)') parentOf[e.from] = e.to;
         });
         var $list = $pane.find('#graph-frames').empty();
         g.nodes.forEach(function (n) { $list.append($('<option>').attr('value', n.id + ' ' + n.name)); });
@@ -71,128 +97,52 @@
         });
         frontier = next;
       }
-      return { ids: order, dist: seen };
+      return order;
     }
 
-    function layout(ids, dist, centre) {
-      var pos = {}, n = ids.length;
-      ids.forEach(function (id, i) {
-        var a = 2 * Math.PI * i / Math.max(1, n - 1), r = id === centre ? 0 : 160 * dist[id];
-        pos[id] = { x: Math.cos(a) * r * 1.8 + (Math.random() - 0.5) * 20, y: Math.sin(a) * r * 1.4 + (Math.random() - 0.5) * 20 };
-      });
-      var inSet = {}; ids.forEach(function (id) { inSet[id] = true; });
-      var links = graph.edges.filter(function (e) { return inSet[e.from] && inSet[e.to] && kindOn(e.kind) && e.from !== e.to; });
-      // more frames need longer lines, or their names run into each other
-      var L = Math.min(230, 110 + n * 2.2), temp = 80;
-      for (var it = 0; it < 350; it++) {
-        var disp = {};
-        ids.forEach(function (id) { disp[id] = { x: 0, y: 0 }; });
-        for (var i = 0; i < n; i++) for (var j = i + 1; j < n; j++) {
-          var p = pos[ids[i]], q = pos[ids[j]], dx = p.x - q.x, dy = p.y - q.y, d2 = dx * dx + dy * dy + 0.01, d = Math.sqrt(d2);
-          var f = (L * L) / d;
-          disp[ids[i]].x += dx / d * f; disp[ids[i]].y += dy / d * f;
-          disp[ids[j]].x -= dx / d * f; disp[ids[j]].y -= dy / d * f;
-        }
-        links.forEach(function (e) {
-          var p = pos[e.from], q = pos[e.to], dx = p.x - q.x, dy = p.y - q.y, d = Math.sqrt(dx * dx + dy * dy) + 0.01;
-          var f = (d * d) / L;
-          disp[e.from].x -= dx / d * f; disp[e.from].y -= dy / d * f;
-          disp[e.to].x += dx / d * f; disp[e.to].y += dy / d * f;
-        });
-        ids.forEach(function (id) {
-          if (id === centre) return;
-          var dd = disp[id], len = Math.sqrt(dd.x * dd.x + dd.y * dd.y) + 0.01, step = Math.min(len, temp);
-          pos[id].x += dd.x / len * step - pos[id].x * 0.01;
-          pos[id].y += dd.y / len * step - pos[id].y * 0.01;
-        });
-        temp = Math.max(2, temp * 0.985);
-      }
-      pos[centre] = { x: 0, y: 0 };
-      return { pos: pos, links: links };
-    }
-
-    function radius(n) { return 6 + Math.min(14, Math.sqrt(n.size) * 2.2); }
-
-    function draw(ids, lay, centre) {
-      while (svg.firstChild) svg.removeChild(svg.firstChild);
-      var defs = el('defs', {});
-      Object.keys(KINDS).forEach(function (k) {
-        var m = el('marker', { id: 'arrow-' + k.replace(/\W+/g, '-'), viewBox: '0 0 10 10', refX: '10', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse' });
-        m.appendChild(el('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: KINDS[k].color }));
-        defs.appendChild(m);
-      });
-      svg.appendChild(defs);
-      var gl = el('g', { 'class': 'links' }), gn = el('g', { 'class': 'nodes' });
-      svg.appendChild(gl); svg.appendChild(gn);
-      // several lines between one pair of frames bend apart, so that each stays visible
-      var pairCount = {}, pairIndex = {};
-      lay.links.forEach(function (e) { var k = [e.from, e.to].sort().join('|'); pairCount[k] = (pairCount[k] || 0) + 1; });
-      lay.links.forEach(function (e) {
-        var p = lay.pos[e.from], q = lay.pos[e.to], k = KINDS[e.kind] || KINDS.other;
-        var dx = q.x - p.x, dy = q.y - p.y, d = Math.sqrt(dx * dx + dy * dy) + 0.01, rq = radius(byId[e.to]) + 2, rp = radius(byId[e.from]);
-        var key = [e.from, e.to].sort().join('|'), i = pairIndex[key] = (pairIndex[key] || 0) + 1, cnt = pairCount[key];
-        var bend = cnt === 1 ? 0 : (i - (cnt + 1) / 2) * 28 * (e.from < e.to ? 1 : -1);
-        var x1 = p.x + dx / d * rp, y1 = p.y + dy / d * rp, x2 = q.x - dx / d * rq, y2 = q.y - dy / d * rq;
-        var cx = (x1 + x2) / 2 - dy / d * bend, cy = (y1 + y2) / 2 + dx / d * bend;
-        var line = el('path', {
-          d: 'M ' + x1 + ' ' + y1 + ' Q ' + cx + ' ' + cy + ' ' + x2 + ' ' + y2, fill: 'none',
-          stroke: k.color, 'stroke-width': k.width, 'marker-end': 'url(#arrow-' + e.kind.replace(/\W+/g, '-') + ')',
-          'data-from': e.from, 'data-to': e.to
-        });
-        if (k.dash) line.setAttribute('stroke-dasharray', k.dash);
-        var t = el('title', {}); t.textContent = byId[e.from].name + ' ' + e.kind + ' ' + byId[e.to].name + (e.count > 1 ? ' (' + e.count + ' sections)' : '');
-        line.appendChild(t);
-        gl.appendChild(line);
-      });
+    function elements(ids, centre) {
+      var inSet = {}, els = [];
+      ids.forEach(function (id) { inSet[id] = true; });
+      // the is-a tree as nesting: a frame whose parent is shown sits in the parent's box
+      var nest = kindOn('is-a (tree)');
       ids.forEach(function (id) {
-        var n = byId[id], p = lay.pos[id], g = el('g', { 'class': 'node' + (id === centre ? ' centre' : ''), transform: 'translate(' + p.x + ',' + p.y + ')', 'data-id': id });
-        g.appendChild(el('circle', { r: radius(n) }));
-        var label = el('text', { x: radius(n) + 4, y: 4 }); label.textContent = n.name;
-        g.appendChild(label);
-        var t = el('title', {}); t.textContent = n.id + ' ' + n.name + ' · ' + n.size + ' concrete frame(s)';
-        g.appendChild(t);
-        g.addEventListener('click', function (ev) { ev.stopPropagation(); focus(id); });
-        g.addEventListener('mouseenter', function () { $(svg).find('path[data-from]').each(function () {
-          var on = this.getAttribute('data-from') === id || this.getAttribute('data-to') === id;
-          this.classList.toggle('dim', !on); }); });
-        g.addEventListener('mouseleave', function () { $(svg).find('path[data-from]').each(function () { this.classList.remove('dim'); }); });
-        gn.appendChild(g);
+        var n = byId[id], data = { id: id, label: n.name + (n.size > 1 ? '  (' + n.size + ')' : ''), name: n.name, size: n.size };
+        if (nest && parentOf[id] && inSet[parentOf[id]]) data.parent = parentOf[id];
+        els.push({ group: 'nodes', data: data, classes: id === centre ? 'centre' : '' });
       });
-      // fit what was drawn
-      var xs = ids.map(function (id) { return lay.pos[id].x; }), ys = ids.map(function (id) { return lay.pos[id].y; });
-      var minX = Math.min.apply(null, xs) - 60, maxX = Math.max.apply(null, xs) + 180, minY = Math.min.apply(null, ys) - 40, maxY = Math.max.apply(null, ys) + 40;
-      // a small neighbourhood is not blown up: the view is at least as large as a middle-sized one, centred on it
-      var w = Math.max(640, maxX - minX), h = Math.max(420, maxY - minY);
-      view = { x: (minX + maxX) / 2 - w / 2, y: (minY + maxY) / 2 - h / 2, w: w, h: h };
-      setView();
+      graph.edges.forEach(function (e, i) {
+        if (!inSet[e.from] || !inSet[e.to] || !kindOn(e.kind) || e.from === e.to) return;
+        if (nest && e.kind === 'is-a (tree)') return;
+        els.push({ group: 'edges', data: { id: 'e' + i, source: e.from, target: e.to, kind: e.kind, count: e.count }, classes: cls(e.kind) });
+      });
+      return els;
     }
-
-    function setView() { svg.setAttribute('viewBox', view.x + ' ' + view.y + ' ' + view.w + ' ' + view.h); }
 
     function focus(id, keepPanel) {
       if (!byId[id]) return;
       focusId = id;
-      var nb = neighbourhood(id), lay = layout(nb.ids, nb.dist, id);
-      draw(nb.ids, lay, id);
-      $pane.find('.graph-focus').text(byId[id].id + ' ' + byId[id].name + ' · ' + (nb.ids.length - 1) + ' related frame(s) shown');
+      var ids = neighbourhood(id);
+      cy.elements().remove();
+      cy.add(elements(ids, id));
+      cy.layout({
+        name: window.cytoscapeFcose ? 'fcose' : 'cose', animate: true, animationDuration: 500, randomize: true, fit: true,
+        padding: 30, nodeRepulsion: 9000, idealEdgeLength: 110, nodeSeparation: 80, packComponents: true,
+        nestingFactor: 0.6, gravity: 0.3, numIter: 2500
+      }).run();
+      $pane.find('.graph-focus').text(byId[id].id + ' ' + byId[id].name + ' · ' + (ids.length - 1) + ' related frame(s)');
       if (!keepPanel && onFocus) onFocus(id);
     }
 
-    // a wheel zooms about the pointer; dragging the background moves the view
-    svg.addEventListener('wheel', function (ev) {
-      ev.preventDefault();
-      var r = svg.getBoundingClientRect(), fx = (ev.clientX - r.left) / r.width, fy = (ev.clientY - r.top) / r.height;
-      var s = ev.deltaY > 0 ? 1.15 : 1 / 1.15, nw = view.w * s, nh = view.h * s;
-      view.x += (view.w - nw) * fx; view.y += (view.h - nh) * fy; view.w = nw; view.h = nh; setView();
-    }, { passive: false });
-    var drag = null;
-    svg.addEventListener('mousedown', function (ev) { drag = { x: ev.clientX, y: ev.clientY, vx: view.x, vy: view.y }; });
-    window.addEventListener('mousemove', function (ev) {
-      if (!drag) return;
-      var r = svg.getBoundingClientRect();
-      view.x = drag.vx - (ev.clientX - drag.x) * view.w / r.width; view.y = drag.vy - (ev.clientY - drag.y) * view.h / r.height; setView();
+    cy.on('tap', 'node', function (ev) { focus(ev.target.id()); });
+    // a frame under the pointer: its lines named, the rest faded
+    cy.on('mouseover', 'node', function (ev) {
+      var n = ev.target, near = n.closedNeighborhood().union(n.ancestors()).union(n.descendants());
+      cy.elements().not(near).addClass('faded');
+      n.connectedEdges().addClass('labelled');
     });
-    window.addEventListener('mouseup', function () { drag = null; });
+    cy.on('mouseout', 'node', function () { cy.elements().removeClass('faded').removeClass('labelled'); });
+    cy.on('mouseover', 'edge', function (ev) { ev.target.addClass('labelled'); });
+    cy.on('mouseout', 'edge', function (ev) { ev.target.removeClass('labelled'); });
 
     $pane.find('.graph-search').on('change', function () {
       var id = (this.value || '').split(' ')[0];
@@ -204,6 +154,7 @@
     return {
       // the first time the tab is shown: the graph is read, and the frame with the most relations is put in the middle
       start: function () {
+        cy.resize();
         if (graph) return;
         load(function () {
           var best = null;
