@@ -225,6 +225,15 @@ public final class BookPanel {
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
             Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items,
             List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups) {
+        return section(book, number, view, rules, listed, pattern, items, groups, List.of(), List.of());
+    }
+
+    /** As the method above, with the causes and motives (step 2 of the frame data workflow) and the properties (step 3) of the groups' concepts. */
+    public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
+            List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed,
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items,
+            List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties) {
         Book b = books.get(book);
         if (b == null) return "<p class=\"hint\">No book " + Html.esc(book) + " in the database.</p>";
         BookSections.Section s = b.sections().stream().filter(x -> x.number().equals(number)).findFirst().orElse(null);
@@ -243,7 +252,7 @@ public final class BookPanel {
         }
         boolean grouped = groups != null && !groups.isEmpty();
         if (grouped) {
-            structure(groups, rules, sb);
+            structure(groups, rules, causes == null ? List.of() : causes, properties == null ? List.of() : properties, sb);
             sb.append("<details class=\"earlier\"><summary>Results of the earlier steps: the main concept and each block's relation to it, "
                     + "the concepts listed, how they relate, the concrete frame material</summary>");
         }
@@ -321,7 +330,7 @@ public final class BookPanel {
      * level. A block in no group stands where it is, marked as left out.
      */
     private static void structure(List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups,
-            com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules, StringBuilder sb) {
+            com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties, StringBuilder sb) {
         var blocks = rules == null ? List.<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Block>of()
                 : com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.blocks(rules.rules(), rules.code());
         Map<String, com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groupOf = new java.util.HashMap<>();
@@ -333,7 +342,7 @@ public final class BookPanel {
             var g = groupOf.get(bl.name());
             if (open != null && g != open) {
                 sb.append("</div>");
-                concepts(open, sb);
+                concepts(open, causes, properties, sb);
                 sb.append("</div>");
                 open = null;
             }
@@ -349,7 +358,7 @@ public final class BookPanel {
         }
         if (open != null) {
             sb.append("</div>");
-            concepts(open, sb);
+            concepts(open, causes, properties, sb);
             sb.append("</div>");
         }
     }
@@ -385,10 +394,33 @@ public final class BookPanel {
         sb.append("</ul></div>");
     }
 
-    /** What a group's main concept is tied to: its causes and motives (step 2), its properties (step 3). */
-    private static void concepts(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, StringBuilder sb) {
-        sb.append("<div class=\"group-concepts\"><b>").append(Html.esc(g.concept() == null ? "its main concept" : g.concept()))
-          .append("</b>: causes and motives <span class=\"hint\">(step 2 not run yet)</span> · properties <span class=\"hint\">(step 3 not run yet)</span></div>");
+    /** What a group's main concept is tied to: its causes and motives (step 2), each with the rules it was read from; its properties (step 3). */
+    private static void concepts(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties, StringBuilder sb) {
+        var mine = causes.stream().filter(l -> l.group() == g.ordinal()).toList();
+        sb.append("<div class=\"group-concepts\"><b>").append(Html.esc(g.concept() == null ? "its main concept" : g.concept())).append("</b><div>causes and motives ");
+        if (mine.isEmpty()) sb.append("<span class=\"hint\">(none found)</span></div>");
+        else {
+            sb.append("</div><ul class=\"causes\">");
+            for (var l : mine) {
+                sb.append("<li><span class=\"cause-from\">").append(Html.esc(l.from())).append("</span> <span class=\"cause-kind\">")
+                  .append(l.kind().equals("motive") ? "is the motive for" : "leads to").append("</span> <span class=\"cause-to\">")
+                  .append(Html.esc(l.to())).append("</span> <span class=\"hint\">").append(Html.esc(l.relation() + ": " + l.satelliteRule() + " → " + l.nucleusRule()))
+                  .append("</span></li>");
+            }
+            sb.append("</ul>");
+        }
+        var props = properties.stream().filter(x -> x.group() == g.ordinal()).toList();
+        sb.append("<div class=\"props-head\">properties ");
+        if (props.isEmpty()) sb.append("<span class=\"hint\">(none found)</span></div>");
+        else {
+            sb.append("</div><ul class=\"props\">");
+            for (var x : props) {
+                sb.append("<li><span class=\"prop-kind\">").append(Html.esc(x.kind())).append("</span> ").append(Html.esc(x.property()))
+                  .append(" <span class=\"hint\">").append(Html.esc(x.rule())).append("</span></li>");
+            }
+            sb.append("</ul>");
+        }
+        sb.append("</div>");
     }
 
     /** What each pattern says of the blocks: the relation most of them bear to the main concept. */

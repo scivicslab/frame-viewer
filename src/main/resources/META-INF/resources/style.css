@@ -125,3 +125,10 @@ ul.sentences .rel { flex: none; width: 12em; overflow-wrap: anywhere; line-heigh
 ul.sentences li.causal .rel { color: #c05621; font-weight: 600; }
 details.earlier { margin: 16px 0; border-top: 1px solid #ddd; padding-top: 6px; }
 details.earlier > summary { cursor: pointer; color: #555; }
+ul.causes { margin: 2px 0 4px; padding-left: 18px; }
+ul.causes li { margin: 2px 0; }
+.cause-from, .cause-to { font-weight: 600; }
+.cause-kind { color: #c05621; font-style: italic; }
+ul.props { margin: 2px 0 4px; padding-left: 18px; }
+ul.props li { margin: 2px 0; }
+.prop-kind { display: inline-block; min-width: 3em; font-family: monospace; font-size: 0.85em; color: #2f855a; font-weight: 600; }
