@@ -27,6 +27,7 @@
       </div>
       <div class="graph"></div>
     </div>
+    <div class="splitter" title="drag to change the heights of the drawing and the frame"></div>
     <div class="panel"></div></div></div>
   <div class="layout" data-tab="workflows"><div class="tree"></div><div class="panel"><p class="hint">Select a workflow. They are numbered in the order they run to make frames from a book.</p></div></div>
   <script src="vendor/jquery-3.7.1.min.js"></script>
@@ -111,6 +112,28 @@
       if (relations) relations.focus(id, true);
     }
     $(document).on('click', '.panel a.frame-id-link', function (e) { e.preventDefault(); openFrame($(this).attr('data-frame-id')); });
+    // the line between the drawing and the frame moves up and down; the height is kept for the next visit
+    (function () {
+      var $col = pane('integrated').find('.right-col'), $g = $col.find('.graph-pane'), drag = null;
+      try { var h = parseInt(localStorage.getItem('frame-viewer-graph-height'), 10); if (h > 0) $g.css('height', h + 'px'); } catch (e) { }
+      $col.find('.splitter').on('mousedown', function (e) {
+        e.preventDefault();
+        drag = { y: e.clientY, h: $g.outerHeight() };
+        $('body').addClass('dragging-split');
+      });
+      $(window).on('mousemove', function (e) {
+        if (!drag) return;
+        var max = $col.height() - 80, h = Math.max(120, Math.min(max, drag.h + e.clientY - drag.y));
+        $g.css('height', h + 'px');
+        if (relations) relations.resize();
+      }).on('mouseup', function () {
+        if (!drag) return;
+        drag = null;
+        $('body').removeClass('dragging-split');
+        try { localStorage.setItem('frame-viewer-graph-height', String($g.outerHeight())); } catch (e) { }
+        if (relations) relations.resize(true);
+      });
+    })();
     // a frame clicked in the drawing moves the middle to it and shows it below
     relations = RelationsGraph(pane('integrated').find('.graph-pane'), function (id) { load('integrated', 'registry-frame', { id: id }); });
     $(document).on('click', '.panel a.section-link', function (e) { e.preventDefault(); load('sections', 'book-section', { book: $(this).attr('data-book'), number: $(this).attr('data-section') }); });

@@ -153,6 +153,11 @@
     return {
       // the tab shown: the drawing takes its size; the graph is read once
       start: function () { cy.resize(); if (!graph) load(); },
+      // the drawing's height changed: it takes its new size, and when the drag ends, fits what it shows again
+      resize: function (fit) {
+        cy.resize();
+        if (fit && cy.elements().length) { cy.fit(cy.elements(), 30); if (cy.zoom() > FIT_ZOOM) { cy.zoom(FIT_ZOOM); cy.center(); } }
+      },
       // a frame chosen elsewhere (the tree, a link): drawn in the middle once the graph is read
       focus: function (id, keepPanel) {
         cy.resize();
