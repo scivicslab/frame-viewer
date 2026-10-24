@@ -197,6 +197,21 @@ public final class BookPanel {
             List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed,
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
             Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items) {
+        return section(book, number, view, rules, listed, pattern, items, null);
+    }
+
+    /**
+     * As {@link #section(String, String, String, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules, List,
+     * com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout, Map)}, with the groups its blocks are split
+     * into (step 1 of the frame data workflow), shown first.
+     *
+     * @param groups the section's groups in order, or {@code null} when it has not been split
+     */
+    public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
+            List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed,
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items,
+            List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups) {
         Book b = books.get(book);
         if (b == null) return "<p class=\"hint\">No book " + Html.esc(book) + " in the database.</p>";
         BookSections.Section s = b.sections().stream().filter(x -> x.number().equals(number)).findFirst().orElse(null);
@@ -213,6 +228,7 @@ public final class BookPanel {
             if (abs.startsWith(worksDir)) sb.append(' ').append(Html.editWorksLink(abs.substring(worksDir.length())));
             sb.append("</div>");
         }
+        if (groups != null && !groups.isEmpty()) groups(groups, sb);
         if (pattern != null) pattern(pattern, rules, sb);
         sb.append("<h3>The concepts it explains</h3>");
         var concepts = b.concepts().get(number);
@@ -266,6 +282,29 @@ public final class BookPanel {
             }
         }
         return sb.toString();
+    }
+
+    /** How a group explains its main concept, by its type. */
+    private static final Map<String, String> GROUP_TYPES = Map.of(
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.SEQUENCE, "its blocks go through it in order",
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.STRUCTURE, "its blocks take it apart into its parts",
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.SET, "its blocks take up its members one by one",
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.ONE, "one block making one point");
+
+    /** The groups of consecutive blocks, each with its type, its main concept, and what each of its blocks is in it. */
+    private static void groups(List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups, StringBuilder sb) {
+        sb.append("<h3>How its blocks are grouped</h3><table class=\"concepts section-groups\"><tr><th>blocks</th><th>main concept</th><th>how</th><th>each block in it</th></tr>");
+        for (var g : groups) {
+            sb.append("<tr><td class=\"concept\">").append(Html.esc(g.first() + (g.blocks().size() > 1 ? "–" + g.last() : ""))).append("</td><td><b>")
+              .append(Html.esc(g.concept() == null ? "(not named)" : g.concept())).append("</b></td><td>").append(Html.esc(g.type()))
+              .append(" <span class=\"hint\">").append(Html.esc(GROUP_TYPES.getOrDefault(g.type(), ""))).append("</span></td><td>");
+            for (var m : g.blocks()) {
+                if (m.name() == null || m.name().isEmpty()) continue;
+                sb.append("<div>").append(Html.esc(m.block())).append(" ").append(Html.esc(m.name())).append("</div>");
+            }
+            sb.append("</td></tr>");
+        }
+        sb.append("</table>");
     }
 
     /** What each pattern says of the blocks: the relation most of them bear to the main concept. */

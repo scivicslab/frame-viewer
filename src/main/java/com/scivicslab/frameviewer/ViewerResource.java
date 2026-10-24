@@ -116,17 +116,19 @@ public class ViewerResource {
         List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed = null;
         com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern = null;
         Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items = Map.of();
+        List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group> groups = null;
         if (Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) {
             try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
                 rules = store.sectionRules(book, number);
                 listed = store.listedConcepts(book).get(number);
                 pattern = store.patterns(book).get(number);
                 items = store.frameItems(book).getOrDefault(number, Map.of());
+                groups = store.groups(book).get(number);
             } catch (java.sql.SQLException e) {
                 throw new IllegalStateException("could not read " + booksDb + ": " + e.getMessage(), e);
             }
         }
-        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items);
+        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items, groups);
     }
 
     /** The Integrated frames tab's panel: one generalized frame of the registry. */
