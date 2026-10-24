@@ -25,6 +25,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @jakarta.ws.rs.Path("/")
 public class ViewerResource {
 
+    /** When this process started: the version the page's links to its style sheet and scripts carry. */
+    static final String STARTED = Long.toString(System.currentTimeMillis(), 36);
+
     @Inject
     Template index;
 
@@ -44,7 +47,9 @@ public class ViewerResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance page() {
         // the page builds code-server links from absolute paths, so it is told where the works directory is
-        return index.data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString());
+        // the page's style sheet and scripts are served as immutable, so a browser keeps them a day; their links carry the
+        // time this process started, and a restarted viewer is fetched anew
+        return index.data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString()).data("v", STARTED);
     }
 
     /** @param tab the tab whose tree is wanted: {@code workflows}, {@code contents}, {@code sections} or {@code integrated} */
