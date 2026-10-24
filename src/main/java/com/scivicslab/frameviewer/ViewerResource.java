@@ -125,16 +125,20 @@ public class ViewerResource {
         List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes = List.of();
         List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties = List.of();
         if (Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) {
+            Loaded l = loaded();
+            Extras x = l.extras().get(book);
             try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
                 rules = store.sectionRules(book, number);
-                listed = store.listedConcepts(book).get(number);
-                pattern = store.patterns(book).get(number);
-                items = store.frameItems(book).getOrDefault(number, Map.of());
-                groups = store.groups(book).get(number);
-                causes = store.causes(book).getOrDefault(number, List.of());
-                properties = store.properties(book).getOrDefault(number, List.of());
             } catch (java.sql.SQLException e) {
                 throw new IllegalStateException("could not read " + booksDb + ": " + e.getMessage(), e);
+            }
+            if (x != null) {
+                listed = x.listed().get(number);
+                pattern = x.patterns().get(number);
+                items = x.items().getOrDefault(number, Map.of());
+                groups = x.groups().get(number);
+                causes = x.causes().getOrDefault(number, List.of());
+                properties = x.properties().getOrDefault(number, List.of());
             }
         }
         return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items, new BookPanel.FrameData(groups == null ? List.of() : groups, causes, properties));
@@ -191,7 +195,9 @@ public class ViewerResource {
     }
 
     private String booksUrl() {
-        return "jdbc:h2:" + Path.of(booksDb).toAbsolutePath().normalize() + ";AUTO_SERVER=TRUE";
+        // the database stays open while the viewer runs: closing the last connection made H2 close and compact the file on every
+        // request, a second each time, and changed the file the cache of the books is keyed on
+        return "jdbc:h2:" + Path.of(booksDb).toAbsolutePath().normalize() + ";AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1";
     }
 
     /**
@@ -199,13 +205,50 @@ public class ViewerResource {
      * on every request, so that a run of either shows on the next click. No database yet means no book.
      */
     BookPanel bookPanel() {
+        return loaded().panel();
+    }
+
+    /** What the panels of one book read of the database besides the book itself: each section's slice, by section number. */
+    record Extras(Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept>> listed, Map<String, com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout> patterns,
+            Map<String, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>>> items, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group>> groups,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link>> causes, Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property>> properties) {}
+
+    /** The books as last read, and the database file's state they were read at. */
+    record Loaded(String stamp, BookPanel panel, Map<String, Extras> extras) {}
+
+    private volatile Loaded loaded;
+
+    /**
+     * Every book, read once and kept until the database file changes: a run of a workflow writes the file, and its result
+     * shows on the next click. Reading every book on every click filled the viewer's heap and made a panel take seconds.
+     */
+    synchronized Loaded loaded() {
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
-        if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return new BookPanel(List.of(), Path.of(worksDir).toAbsolutePath().normalize().toString());
-        try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
-            return bookPanel(store);
-        } catch (java.sql.SQLException e) {
-            throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
+        Path file = Path.of(db + ".mv.db");
+        String stamp;
+        try {
+            stamp = Files.isRegularFile(file) ? Files.getLastModifiedTime(file).toMillis() + "/" + Files.size(file) : "none";
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
+        Loaded l = loaded;
+        if (l != null && l.stamp().equals(stamp)) return l;
+        if (stamp.equals("none")) {
+            l = new Loaded(stamp, new BookPanel(List.of(), Path.of(worksDir).toAbsolutePath().normalize().toString()), Map.of());
+        } else {
+            try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
+                Map<String, Extras> extras = new java.util.HashMap<>();
+                for (String b : store.books()) {
+                    extras.put(b, new Extras(store.listedConcepts(b), store.patterns(b), store.frameItems(b), store.groups(b), store.causes(b),
+                            store.properties(b)));
+                }
+                l = new Loaded(stamp, bookPanel(store), extras);
+            } catch (java.sql.SQLException e) {
+                throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
+            }
+        }
+        loaded = l;
+        return l;
     }
 
     private BookPanel bookPanel(com.scivicslab.turingworkflow.plugins.rstframe.BookStore store) throws java.sql.SQLException {
