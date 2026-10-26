@@ -52,13 +52,12 @@ public class ViewerResource {
         return index.data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString()).data("v", STARTED);
     }
 
-    /** @param tab the tab whose tree is wanted: {@code workflows}, {@code contents}, {@code sections} or {@code integrated} */
+    /** @param tab the tab whose tree is wanted: {@code workflows}, {@code sections} or {@code integrated} */
     @GET
     @jakarta.ws.rs.Path("tree")
     @Produces(MediaType.APPLICATION_JSON)
     public List<TreeNode> tree(@QueryParam("tab") String tab) {
         return switch (tab == null ? "workflows" : tab) {
-            case "contents" -> bookPanel().contentsTree();
             case "sections" -> bookPanel().sectionsTree();
             case "integrated" -> withRegistry(RegistryPanel::tree);
             default -> workflowPanel().tree();
@@ -76,7 +75,6 @@ public class ViewerResource {
         Search s = new Search(q);
         if (s.blank()) return List.of();
         return switch (tab == null ? "workflows" : tab) {
-            case "contents" -> bookPanel().searchContents(s);
             case "sections" -> searchSections(s);
             case "integrated" -> withRegistry(p -> p.search(s));
             default -> workflowPanel().search(s);
@@ -101,7 +99,7 @@ public class ViewerResource {
         }
     }
 
-    /** The Contents tab's panel: one node of a book's table of contents. */
+    /** The Sections tab's panel for a node that has no text: one node of a book's table of contents. */
     @GET
     @jakarta.ws.rs.Path("book-node")
     @Produces(MediaType.TEXT_HTML)

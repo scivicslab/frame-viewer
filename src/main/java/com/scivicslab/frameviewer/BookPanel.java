@@ -9,8 +9,8 @@ import com.scivicslab.turingworkflow.plugins.rstframe.BookOutline;
 import com.scivicslab.turingworkflow.plugins.rstframe.BookSections;
 
 /**
- * The Contents and Sections tabs ({@code FrameOntology_261021_oo01}, getting the concept hierarchy): a book's table of
- * contents as {@code book-toc.yaml} stored it, and its text cut into those nodes as {@code book-sections.yaml} stored it.
+ * The Sections tab ({@code FrameOntology_261021_oo01}, getting the concept hierarchy): a book's table of
+ * contents as {@code book-toc.yaml} stored it as a tree, and its text cut into those nodes as {@code book-sections.yaml} stored it.
  * Pure: it is given what the H2 database holds.
  */
 public final class BookPanel {
@@ -72,55 +72,70 @@ public final class BookPanel {
         this.worksDir = worksDir.endsWith("/") ? worksDir : worksDir + "/";
     }
 
-    /** The Contents tab: one root per book, its parts, chapters, sections and subsections under their parents. */
-    public List<TreeNode> contentsTree() {
-        List<TreeNode> out = new ArrayList<>();
-        for (Book b : books.values()) {
-            String root = "b:" + b.name();
-            out.add(new TreeNode(root, "#", b.name() + " (" + b.outline().size() + " nodes)", Map.of()));
-            for (BookOutline.Node n : b.outline()) {
-                String parent = n.parent() == null ? root : "n:" + b.name() + "|" + n.parent();
-                out.add(new TreeNode("n:" + b.name() + "|" + n.number(), parent, n.number() + " " + n.title(),
-                        Map.of("data-book", b.name(), "data-node", n.number(), "data-level", n.level())));
-            }
-        }
-        return out;
-    }
-
-    /** The Sections tab: one root per book, its sections in the book's order, each with its length and how many files it spans. */
+    /**
+     * The Sections tab: one root per book, and under it the book's table of contents as a tree -- its parts, chapters,
+     * sections and subsections under their parents. A node that has text carries its section's label (its length, how many
+     * files it spans, what has been read of it); a node without text (a part, or a chapter that only holds sections) carries
+     * its number and title. A section the table of contents does not name (a big section cut into pieces, {@code 4.2.p1}) stands
+     * under the node whose number is its own with the last piece dropped, or else under the book.
+     */
     public List<TreeNode> sectionsTree() {
         List<TreeNode> out = new ArrayList<>();
         for (Book b : books.values()) {
             String root = "sb:" + b.name();
             out.add(new TreeNode(root, "#", b.name() + " (" + b.sections().size() + " sections)", Map.of()));
             Map<String, BookOutline.Node> nodes = nodes(b);
+            Map<String, BookSections.Section> sections = new LinkedHashMap<>();
+            for (BookSections.Section s : b.sections()) sections.put(s.number(), s);
+            java.util.Set<String> known = new java.util.HashSet<>(nodes.keySet());
+            known.addAll(sections.keySet());
+            for (BookOutline.Node n : b.outline()) {
+                String parent = parentOf(b.name(), root, n.number(), n.parent(), known);
+                BookSections.Section s = sections.get(n.number());
+                out.add(s != null
+                        ? new TreeNode(sectionId(b.name(), n.number()), parent, sectionLabel(b, s, n.title()),
+                                Map.of("data-book", b.name(), "data-section", n.number(), "data-level", n.level()))
+                        : new TreeNode(sectionId(b.name(), n.number()), parent, n.number() + " " + n.title(),
+                                Map.of("data-book", b.name(), "data-node", n.number(), "data-level", n.level())));
+            }
             for (BookSections.Section s : b.sections()) {
-                BookOutline.Node n = nodes.get(s.number());
-                String title = n == null ? "" : n.title();
-                var gs = b.groups().get(s.number());
-                String text = gs != null && !gs.isEmpty() ? s.number() + " " + title + "  · " + gs.size() + " unit" + (gs.size() > 1 ? "s" : "") + ": "
-                        + String.join("; ", gs.stream().map(g -> g.type() + " of " + (g.concept() == null ? "?" : g.concept())).toList())
-                        : s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")
-                        + (b.withRules().contains(s.number()) ? " · rst" : "")
-                        + (b.concepts().containsKey(s.number()) ? " · " + conceptCount(b.concepts().get(s.number())) : "")
-                        + (b.relations().containsKey(s.number()) ? " · " + b.relations().get(s.number()).size() + " relations" : "")
-                        + (b.patterns().containsKey(s.number()) ? " · " + b.patterns().get(s.number()).pattern() + " of "
-                                + b.patterns().get(s.number()).concept() : "");
-                out.add(new TreeNode("s:" + b.name() + "|" + s.number(), root, text, Map.of("data-book", b.name(), "data-section", s.number())));
+                if (nodes.containsKey(s.number())) continue;
+                out.add(new TreeNode(sectionId(b.name(), s.number()), parentOf(b.name(), root, s.number(), null, known), sectionLabel(b, s, ""),
+                        Map.of("data-book", b.name(), "data-section", s.number())));
             }
         }
         return out;
     }
 
-    /** @return the nodes of the Contents tab whose number and title hold every word searched for */
-    public List<Search.Hit> searchContents(Search q) {
-        List<Search.Hit> out = new ArrayList<>();
-        for (Book b : books.values()) {
-            for (BookOutline.Node n : b.outline()) {
-                if (q.in(n.number() + " " + n.title())) out.add(new Search.Hit("n:" + b.name() + "|" + n.number(), "title"));
-            }
+    /**
+     * The tree node a number stands under: its parent in the table of contents when that parent is a node of the tree;
+     * else the nearest node whose number is the number with its last parts dropped ({@code 2.2.3} under {@code 2.2}, or
+     * under {@code 2} when the table of contents has no 2.2); else the book.
+     */
+    private static String parentOf(String book, String root, String number, String declared, java.util.Set<String> known) {
+        if (declared != null && known.contains(declared)) return sectionId(book, declared);
+        for (String up = number; up.indexOf('.') > 0; ) {
+            up = up.substring(0, up.lastIndexOf('.'));
+            if (known.contains(up)) return sectionId(book, up);
         }
-        return out;
+        return root;
+    }
+
+    private static String sectionId(String book, String number) {
+        return "s:" + book + "|" + number;
+    }
+
+    /** The label of a section in the tree: its number and title, then its units if the frame data was read, else its length and what was read of it. */
+    private String sectionLabel(Book b, BookSections.Section s, String title) {
+        var gs = b.groups().get(s.number());
+        return gs != null && !gs.isEmpty() ? s.number() + " " + title + "  · " + gs.size() + " unit" + (gs.size() > 1 ? "s" : "") + ": "
+                + String.join("; ", gs.stream().map(g -> g.type() + " of " + (g.concept() == null ? "?" : g.concept())).toList())
+                : s.number() + " " + title + "  · " + s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")
+                + (b.withRules().contains(s.number()) ? " · rst" : "")
+                + (b.concepts().containsKey(s.number()) ? " · " + conceptCount(b.concepts().get(s.number())) : "")
+                + (b.relations().containsKey(s.number()) ? " · " + b.relations().get(s.number()).size() + " relations" : "")
+                + (b.patterns().containsKey(s.number()) ? " · " + b.patterns().get(s.number()).pattern() + " of "
+                        + b.patterns().get(s.number()).concept() : "");
     }
 
     /**
@@ -132,8 +147,13 @@ public final class BookPanel {
         List<Search.Hit> out = new ArrayList<>();
         for (Book b : books.values()) {
             Map<String, BookOutline.Node> nodes = nodes(b);
+            java.util.Set<String> withText = new java.util.HashSet<>();
+            for (BookSections.Section s : b.sections()) withText.add(s.number());
+            for (BookOutline.Node n : b.outline()) {
+                if (!withText.contains(n.number()) && q.in(n.number() + " " + n.title())) out.add(new Search.Hit(sectionId(b.name(), n.number()), "title"));
+            }
             for (BookSections.Section s : b.sections()) {
-                String id = "s:" + b.name() + "|" + s.number();
+                String id = sectionId(b.name(), s.number());
                 BookOutline.Node n = nodes.get(s.number());
                 StringBuilder concepts = new StringBuilder();
                 for (var c : b.concepts().getOrDefault(s.number(), List.of())) concepts.append(c.concept()).append('\n');
@@ -146,7 +166,7 @@ public final class BookPanel {
         return out;
     }
 
-    /** The Contents tab's panel: one node, where it stands, what is under it, and the link to its text. */
+    /** The panel of a node without text in the Sections tab: one node, where it stands, what is under it, and the link to its text. */
     public String node(String book, String number) {
         Book b = books.get(book);
         if (b == null) return "<p class=\"hint\">No book " + Html.esc(book) + " in the database.</p>";

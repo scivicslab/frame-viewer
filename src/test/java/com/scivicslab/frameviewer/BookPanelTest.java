@@ -34,15 +34,38 @@ class BookPanelTest {
     }
 
     @Test
-    void theContentsAreATreeUnderTheBookAndTheSectionsAListInTheBooksOrder() {
-        List<TreeNode> c = panel().contentsTree();
-        assertEquals("core (3 nodes)", c.get(0).text());
-        assertEquals(new TreeNode("n:core|4.1.1", "n:core|4.1", "4.1.1 Classes",
-                java.util.Map.of("data-book", "core", "data-node", "4.1.1", "data-level", "subsection")), c.get(3));
+    void theSectionsAreTheBooksTableOfContentsAsATreeEachNodeWithItsTextLabel() {
         List<TreeNode> s = panel().sectionsTree();
         assertEquals("core (3 sections)", s.get(0).text());
+        assertEquals("sb:core", s.get(1).parent(), "the chapter stands under the book");
+        assertEquals("s:core|4", s.get(2).parent(), "4.1 stands under 4");
+        assertEquals("s:core|4.1", s.get(3).parent(), "4.1.1 stands under 4.1");
         assertEquals("4.1.1 Classes  · 35 chars, 2 files · rst · 3 concepts, 1 dropped · 3 relations", s.get(3).text());
-        assertEquals("sb:core", s.get(3).parent());
+        assertEquals("subsection", s.get(3).li_attr().get("data-level"));
+        assertEquals("4.1.1", s.get(3).li_attr().get("data-section"));
+    }
+
+    @Test
+    void aNodeWithoutTextIsInTheTreeAsANodeAndASectionTheOutlineDoesNotNameStandsUnderItsParent() {
+        BookPanel p = new BookPanel(List.of(new BookPanel.Book("b", "/w/books/b",
+                List.of(new BookOutline.Node("1", "part", "Basics", null, "f.md"),
+                        new BookOutline.Node("1.1", "chapter", "Types", "1", "f.md"),
+                        new BookOutline.Node("2", "chapter", "Loops", null, "g.md"),
+                        new BookOutline.Node("2.2.3", "subsection", "Orphan", "2.2", "g.md")),
+                List.of(new BookSections.Section("1.1", "Types text.", List.of("f.md")),
+                        new BookSections.Section("1.1.p1", "A piece.", List.of("f.md")),
+                        new BookSections.Section("9.p1", "Alone.", List.of("g.md"))),
+                java.util.Set.of(), java.util.Map.of(), java.util.Map.of())), "/w");
+        List<TreeNode> t = p.sectionsTree();
+        TreeNode part = t.stream().filter(n -> n.id().equals("s:b|1")).findFirst().orElseThrow();
+        assertEquals("1 Basics", part.text(), "a part has no text: its number and title");
+        assertEquals("1", part.li_attr().get("data-node"));
+        assertEquals(null, part.li_attr().get("data-section"));
+        assertEquals("sb:b", part.parent());
+        assertEquals("s:b|1", t.stream().filter(n -> n.id().equals("s:b|1.1")).findFirst().orElseThrow().parent());
+        assertEquals("s:b|1.1", t.stream().filter(n -> n.id().equals("s:b|1.1.p1")).findFirst().orElseThrow().parent(), "a piece stands under the section it was cut from");
+        assertEquals("s:b|2", t.stream().filter(n -> n.id().equals("s:b|2.2.3")).findFirst().orElseThrow().parent(), "a node whose parent the table of contents lacks stands under the nearest node above it");
+        assertEquals("sb:b", t.stream().filter(n -> n.id().equals("s:b|9.p1")).findFirst().orElseThrow().parent(), "a piece whose parent is unknown stands under the book");
     }
 
     @Test

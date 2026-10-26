@@ -22,9 +22,9 @@ class SearchTest {
     }
 
     @Test
-    void theContentsMatchTitlesAndTheSectionsTitlesThenTextThenRules() {
+    void theSectionsMatchTitlesThenTextThenRules() {
         BookPanel p = BookPanelTest.panel();
-        assertEquals(List.of(new Search.Hit("n:core|4", "title"), new Search.Hit("n:core|4.1.1", "title")), p.searchContents(new Search("classes")));
+        assertEquals(List.of(new Search.Hit("s:core|4", "title"), new Search.Hit("s:core|4.1.1", "title")), p.searchSections(new Search("classes"), (b, n) -> null));
         assertEquals(List.of(new Search.Hit("s:core|4.1.1", "text")), p.searchSections(new Search("template"), (b, n) -> null));
         assertEquals(List.of(new Search.Hit("s:core|4.1.1", "text")), p.searchSections(new Search("instance"), (b, n) -> null), "a concept of the section");
         assertEquals(List.of(new Search.Hit("s:core|4.1.1", "rules")), p.searchSections(new Search("defrule b1"), (b, n) -> "(defrule b1 -> \"x\")"));
