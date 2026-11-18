@@ -79,9 +79,11 @@ public class ViewerResource {
         Search s = new Search(q);
         if (in != null) {
             String query = q == null ? "" : q.strip();
-            BookPanel books = bookPanel();
+            // the books are taken once for the whole page: while the database file changes, each take reads every book again
+            Loaded l = loaded();
+            BookPanel books = l.panel();
             String body = s.blank() ? "<h2>Search the books</h2><p class=\"hint\">Give the words to look for in the box above the tree.</p>"
-                    : books.searchBody(query, searchSections(s), Html.base(1));
+                    : books.searchBody(query, searchSections(books, s), Html.base(1));
             return page(200, "sections", "Search: " + query, query, books.tree(null, null, Html.base(1)), body, Html.base(1));
         }
         List<Search.Hit> hits = s.blank() ? List.of()
@@ -106,7 +108,7 @@ public class ViewerResource {
     public Response book(@PathParam("book") String book) {
         String base = Html.base(2);
         BookPanel books = bookPanel();
-        if (!books.has(book, null)) return notFound("No book " + book + " in the database.", base);
+        if (!books.has(book, null)) return notFound(books, "No book " + book + " in the database.", base);
         return page(200, "sections", book, "", books.tree(book, null, base), books.bookBody(book, base), base);
     }
 
@@ -119,9 +121,10 @@ public class ViewerResource {
     @Produces(MediaType.TEXT_HTML)
     public Response node(@PathParam("book") String book, @PathParam("number") String number, @QueryParam("view") String view) {
         String base = Html.base(3);
-        BookPanel books = bookPanel();
-        if (!books.has(book, number)) return notFound("No node " + number + " in " + book + ".", base);
-        return page(200, "sections", number + " · " + book, "", books.tree(book, number, base), sectionBody(book, number, view, base), base);
+        Loaded l = loaded();
+        BookPanel books = l.panel();
+        if (!books.has(book, number)) return notFound(books, "No node " + number + " in " + book + ".", base);
+        return page(200, "sections", number + " · " + book, "", books.tree(book, number, base), sectionBody(l, book, number, view, base), base);
     }
 
     /** One node of a book's left tree as the page's script reads it: its label, its page's path, and its children's path when it has any. */
@@ -150,8 +153,8 @@ public class ViewerResource {
                 e.branch() ? Html.path("tree", "sections", book, e.number()) : null)).toList(), MediaType.APPLICATION_JSON_TYPE).build();
     }
 
-    private Response notFound(String message, String base) {
-        return page(404, "sections", "Not found", "", bookPanel().tree(null, null, base), "<p class=\"hint\">" + Html.esc(message) + "</p>", base);
+    private Response notFound(BookPanel books, String message, String base) {
+        return page(404, "sections", "Not found", "", books.tree(null, null, base), "<p class=\"hint\">" + Html.esc(message) + "</p>", base);
     }
 
     /** A page drawn with the template {@code page.html}, in the tab given. */
@@ -166,10 +169,9 @@ public class ViewerResource {
      * The Sections tab's search: the books as {@link #loaded()} keeps them, and the sections' rule files read by their keys.
      * Building a second copy of every book for each search, beside the kept one, ran the viewer out of heap.
      */
-    private List<Search.Hit> searchSections(Search s) {
+    private List<Search.Hit> searchSections(BookPanel books, Search s) {
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
         if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return List.of();
-        BookPanel books = loaded().panel();
         try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
             return books.searchSections(s, (b, n) -> {
                 try {
@@ -185,7 +187,7 @@ public class ViewerResource {
     }
 
     /** The text of a node's page: the node, and its section with what the workflows made of it, read from the kept books and the database. */
-    private String sectionBody(String book, String number, String view, String base) {
+    private String sectionBody(Loaded l, String book, String number, String view, String base) {
         // the rule file and the concepts' sentences: the concepts are shown with their rules beside them
         com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules = null;
         List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed = null;
@@ -197,7 +199,6 @@ public class ViewerResource {
         List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptRelations.Relation> relations = List.of();
         List<BookPanel.Similar> similar = List.of();
         if (Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) {
-            Loaded l = loaded();
             Extras x = l.extras().get(book);
             try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
                 rules = store.sectionRules(book, number);
@@ -216,7 +217,7 @@ public class ViewerResource {
                 similar = x.similar().getOrDefault(number, List.of()).stream().distinct().toList();
             }
         }
-        return bookPanel().section(book, number, "rst".equals(view) ? "rst" : "md", base, rules, listed, pattern, items,
+        return l.panel().section(book, number, "rst".equals(view) ? "rst" : "md", base, rules, listed, pattern, items,
                 new BookPanel.FrameData(groups == null ? List.of() : groups, causes, properties, relations, similar));
     }
 
