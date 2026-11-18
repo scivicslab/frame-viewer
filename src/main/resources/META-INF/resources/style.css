@@ -139,3 +139,21 @@ ul.rels li { margin: 2px 0; }
 ul.sims { margin: 2px 0 4px; padding-left: 18px; }
 ul.sims li { margin: 2px 0; }
 .sim-concept { font-weight: 600; }
+/* the pages the server draws: the layout is shown at once, and the left tree is nested lists */
+.layout.page-layout { display: flex; }
+.toc-head { font-size: 0.9em; padding: 2px 0 6px; }
+ul.toc { list-style: none; margin: 0; padding-left: 14px; }
+.tree > ul.toc { padding-left: 0; }
+ul.toc li { margin: 1px 0; font-size: 0.92em; line-height: 1.35; }
+ul.toc li.leaf { padding-left: 14px; }
+ul.toc li.branch > ul { display: none; }
+ul.toc li.branch.open > ul { display: block; }
+ul.toc .twisty { display: inline-block; width: 14px; cursor: pointer; color: #777; user-select: none; }
+ul.toc .twisty::before { content: "▸"; }
+ul.toc li.open > .twisty::before { content: "▾"; }
+ul.toc li.loading > .twisty::before { content: "…"; }
+ul.toc a, .toc-head a { color: #234; text-decoration: none; }
+ul.toc a:hover, .toc-head a:hover { text-decoration: underline; }
+ul.toc a.current, .toc-head a.current { background: #357; color: #fff; border-radius: 3px; padding: 0 3px; }
+ul.search-hits li { margin: 3px 0; }
+.tab-page { margin-right: 4px; padding: 3px 10px; border: 1px solid #ccc; border-radius: 4px; text-decoration: none; color: #333; font-size: 0.9em; }

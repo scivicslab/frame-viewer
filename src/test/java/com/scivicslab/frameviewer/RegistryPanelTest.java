@@ -50,6 +50,8 @@ class RegistryPanelTest {
         assertTrue(html.contains("data-frame-id=\"F0002\">F0002 variable</a> <b>feature</b> data type"), html);
         assertTrue(html.contains("<td class=\"concept\">What values does it hold?</td><td class=\"rules\"><pre class=\"rule-lisp\"><span class=\"hint\">3.3.1</span> (defrule b1/1"), html);
         assertTrue(html.contains("<div class=\"frame-kind\">integer types · 3.3.1</div>"), html);
+        assertTrue(html.contains("<h3>Its concrete frames</h3><div class=\"frame-folded\"><a href=\"sections/core/3.3.1\">3.3.1</a> integer types · "
+                + "<a href=\"sections/core/3.3.2\">3.3.2</a> floating-point types</div>"), "a concrete frame is a plain link to its section's page: " + html);
         assertTrue(panel().frame("F0002").contains("its kinds: <a href=\"#\" class=\"frame-id-link\" data-frame-id=\"F0003\">F0003 constant</a>"));
     }
 }

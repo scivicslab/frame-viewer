@@ -13,8 +13,10 @@ import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
@@ -30,6 +32,10 @@ public class ViewerResource {
 
     @Inject
     Template index;
+
+    /** The pages the server draws: the tabs above, the search box and the tree on the left, the page's text on the right. */
+    @Inject
+    Template page;
 
     @ConfigProperty(name = "frame-viewer.works-dir")
     String worksDir;
@@ -52,33 +58,108 @@ public class ViewerResource {
         return index.data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString()).data("v", STARTED);
     }
 
-    /** @param tab the tab whose tree is wanted: {@code workflows}, {@code sections} or {@code integrated} */
+    /** @param tab the tab of the page at the top whose tree is wanted: {@code workflows} or {@code integrated} */
     @GET
     @jakarta.ws.rs.Path("tree")
     @Produces(MediaType.APPLICATION_JSON)
     public List<TreeNode> tree(@QueryParam("tab") String tab) {
-        return switch (tab == null ? "workflows" : tab) {
-            case "sections" -> bookPanel().sectionsTree();
-            case "integrated" -> withRegistry(RegistryPanel::tree);
-            default -> workflowPanel().tree();
-        };
+        return "integrated".equals(tab) ? withRegistry(RegistryPanel::tree) : workflowPanel().tree();
     }
 
     /**
-     * The search box atop a tab's tree: the nodes of that tree that hold every word of {@code q}, and where each matched.
-     * The page shows those nodes and the nodes above them, and hides the rest.
+     * The search. With {@code in}, the page of the results ({@code search?in=sections&q=...}): each node that holds every
+     * word of {@code q}, a link to its page, with where it matched. With {@code tab}, the tabs of the page at the top
+     * (Workflows, Integrated frames) are given the nodes of their tree as JSON, which that page shows with the nodes above
+     * them; this goes when those tabs become pages.
      */
     @GET
     @jakarta.ws.rs.Path("search")
-    @Produces(MediaType.APPLICATION_JSON)
-    public List<Search.Hit> search(@QueryParam("tab") String tab, @QueryParam("q") String q) {
+    @Produces({MediaType.TEXT_HTML, MediaType.APPLICATION_JSON})
+    public Response search(@QueryParam("in") String in, @QueryParam("tab") String tab, @QueryParam("q") String q) {
         Search s = new Search(q);
-        if (s.blank()) return List.of();
-        return switch (tab == null ? "workflows" : tab) {
-            case "sections" -> searchSections(s);
-            case "integrated" -> withRegistry(p -> p.search(s));
-            default -> workflowPanel().search(s);
-        };
+        if (in != null) {
+            String query = q == null ? "" : q.strip();
+            BookPanel books = bookPanel();
+            String body = s.blank() ? "<h2>Search the books</h2><p class=\"hint\">Give the words to look for in the box above the tree.</p>"
+                    : books.searchBody(query, searchSections(s), Html.base(1));
+            return page(200, "sections", "Search: " + query, query, books.tree(null, null, Html.base(1)), body, Html.base(1));
+        }
+        List<Search.Hit> hits = s.blank() ? List.of()
+                : "integrated".equals(tab) ? withRegistry(p -> p.search(s)) : workflowPanel().search(s);
+        return Response.ok(hits, MediaType.APPLICATION_JSON_TYPE).build();
+    }
+
+    /** The page {@code sections}: the books. */
+    @GET
+    @jakarta.ws.rs.Path("sections")
+    @Produces(MediaType.TEXT_HTML)
+    public Response sections() {
+        String base = Html.base(1);
+        BookPanel books = bookPanel();
+        return page(200, "sections", "Books", "", books.tree(null, null, base), books.booksBody(base), base);
+    }
+
+    /** The page {@code sections/<book>}: one book and the nodes right under it. */
+    @GET
+    @jakarta.ws.rs.Path("sections/{book}")
+    @Produces(MediaType.TEXT_HTML)
+    public Response book(@PathParam("book") String book) {
+        String base = Html.base(2);
+        BookPanel books = bookPanel();
+        if (!books.has(book, null)) return notFound("No book " + book + " in the database.", base);
+        return page(200, "sections", book, "", books.tree(book, null, base), books.bookBody(book, base), base);
+    }
+
+    /**
+     * The page {@code sections/<book>/<number>}: one node of the book's table of contents, and the section of the same number
+     * with what the workflows made of it; {@code view=rst} shows its rule file in place of its markdown.
+     */
+    @GET
+    @jakarta.ws.rs.Path("sections/{book}/{number}")
+    @Produces(MediaType.TEXT_HTML)
+    public Response node(@PathParam("book") String book, @PathParam("number") String number, @QueryParam("view") String view) {
+        String base = Html.base(3);
+        BookPanel books = bookPanel();
+        if (!books.has(book, number)) return notFound("No node " + number + " in " + book + ".", base);
+        return page(200, "sections", number + " · " + book, "", books.tree(book, number, base), sectionBody(book, number, view, base), base);
+    }
+
+    /** One node of a book's left tree as the page's script reads it: its label, its page's path, and its children's path when it has any. */
+    public record TreeEntry(String label, String path, boolean branch, String tree) {}
+
+    /** The nodes right under a book, for the left tree: what its script puts in place when the book's branch is opened. */
+    @GET
+    @jakarta.ws.rs.Path("tree/sections/{book}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response treeOfBook(@PathParam("book") String book) {
+        return treeEntries(book, null);
+    }
+
+    /** The nodes right under one node of a book, for the left tree. */
+    @GET
+    @jakarta.ws.rs.Path("tree/sections/{book}/{number}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response treeOfNode(@PathParam("book") String book, @PathParam("number") String number) {
+        return treeEntries(book, number);
+    }
+
+    private Response treeEntries(String book, String number) {
+        List<BookPanel.TocEntry> kids = bookPanel().children(book, number);
+        if (kids == null) return Response.status(404).type(MediaType.APPLICATION_JSON_TYPE).entity(List.of()).build();
+        return Response.ok(kids.stream().map(e -> new TreeEntry(e.label(), Html.path("sections", book, e.number()), e.branch(),
+                e.branch() ? Html.path("tree", "sections", book, e.number()) : null)).toList(), MediaType.APPLICATION_JSON_TYPE).build();
+    }
+
+    private Response notFound(String message, String base) {
+        return page(404, "sections", "Not found", "", bookPanel().tree(null, null, base), "<p class=\"hint\">" + Html.esc(message) + "</p>", base);
+    }
+
+    /** A page drawn with the template {@code page.html}, in the tab given. */
+    private Response page(int status, String tab, String title, String q, String tree, String body, String base) {
+        String html = page.data("title", title).data("tab", tab).data("q", q).data("placeholder", "search the books: numbers, titles, text, concepts, rule files")
+                .data("tree", tree).data("body", body).data("base", base).data("v", STARTED)
+                .data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString()).render();
+        return Response.status(status).type(MediaType.TEXT_HTML_TYPE.withCharset("UTF-8")).entity(html).build();
     }
 
     /**
@@ -103,21 +184,8 @@ public class ViewerResource {
         }
     }
 
-    /** The Sections tab's panel for a node that has no text: one node of a book's table of contents. */
-    @GET
-    @jakarta.ws.rs.Path("book-node")
-    @Produces(MediaType.TEXT_HTML)
-    public String bookNode(@QueryParam("book") String book, @QueryParam("number") String number) {
-        if (book == null || number == null) return "<p class=\"hint\">No node given.</p>";
-        return bookPanel().node(book, number);
-    }
-
-    /** The Sections tab's panel: one section's text. */
-    @GET
-    @jakarta.ws.rs.Path("book-section")
-    @Produces(MediaType.TEXT_HTML)
-    public String bookSection(@QueryParam("book") String book, @QueryParam("number") String number, @QueryParam("view") String view) {
-        if (book == null || number == null) return "<p class=\"hint\">No section given.</p>";
+    /** The text of a node's page: the node, and its section with what the workflows made of it, read from the kept books and the database. */
+    private String sectionBody(String book, String number, String view, String base) {
         // the rule file and the concepts' sentences: the concepts are shown with their rules beside them
         com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules = null;
         List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed = null;
@@ -148,7 +216,8 @@ public class ViewerResource {
                 similar = x.similar().getOrDefault(number, List.of()).stream().distinct().toList();
             }
         }
-        return bookPanel().section(book, number, view == null ? "md" : view, rules, listed, pattern, items, new BookPanel.FrameData(groups == null ? List.of() : groups, causes, properties, relations, similar));
+        return bookPanel().section(book, number, "rst".equals(view) ? "rst" : "md", base, rules, listed, pattern, items,
+                new BookPanel.FrameData(groups == null ? List.of() : groups, causes, properties, relations, similar));
     }
 
     /** The Integrated frames tab's panel: one generalized frame of the registry. */

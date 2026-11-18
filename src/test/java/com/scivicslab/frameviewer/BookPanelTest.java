@@ -35,14 +35,46 @@ class BookPanelTest {
 
     @Test
     void theSectionsAreTheBooksTableOfContentsAsATreeEachNodeWithItsTextLabel() {
-        List<TreeNode> s = panel().sectionsTree();
-        assertEquals("core (3 sections)", s.get(0).text());
-        assertEquals("sb:core", s.get(1).parent(), "the chapter stands under the book");
-        assertEquals("s:core|4", s.get(2).parent(), "4.1 stands under 4");
-        assertEquals("s:core|4.1", s.get(3).parent(), "4.1.1 stands under 4.1");
-        assertEquals("4.1.1 Classes  · 35 chars, 2 files · rst · 3 concepts, 1 dropped · 3 relations", s.get(3).text());
-        assertEquals("subsection", s.get(3).li_attr().get("data-level"));
-        assertEquals("4.1.1", s.get(3).li_attr().get("data-section"));
+        BookPanel p = panel();
+        assertEquals(List.of(new BookPanel.TocEntry("core", "4", "4 Objects and Classes  · 16 chars", true)), p.children("core", null),
+                "the chapter stands under the book");
+        assertEquals("4.1", p.children("core", "4").get(0).number(), "4.1 stands under 4");
+        assertEquals(List.of(new BookPanel.TocEntry("core", "4.1.1", "4.1.1 Classes  · 35 chars, 2 files · rst · 3 concepts, 1 dropped · 3 relations", false)),
+                p.children("core", "4.1"), "4.1.1 stands under 4.1, with nothing under it");
+        assertEquals(null, p.children("core", "9"), "no such node");
+        assertEquals(null, p.children("nobook", null), "no such book");
+    }
+
+    /** The left tree is drawn by the server, open only down to the page's node: each level of that branch, and the level right under it. */
+    @Test
+    void theTreeIsOpenOnlyDownToTheNodeOfThePage() {
+        BookPanel p = new BookPanel(List.of(new BookPanel.Book("b", "/w/books/b",
+                List.of(new BookOutline.Node("1", "chapter", "One", null, "f.md"),
+                        new BookOutline.Node("1.1", "section", "One one", "1", "f.md"),
+                        new BookOutline.Node("1.1.1", "subsection", "Deep", "1.1", "f.md"),
+                        new BookOutline.Node("1.2", "section", "One two", "1", "f.md"),
+                        new BookOutline.Node("2", "chapter", "Two", null, "g.md"),
+                        new BookOutline.Node("2.1", "section", "Two one", "2", "g.md")),
+                List.of(), java.util.Set.of(), java.util.Map.of(), java.util.Map.of())), "/w");
+        String html = p.tree("b", "1", "../../");
+        assertTrue(html.contains("<a href=\"../../sections/b/1\" class=\"current\">1 One</a>"), html);
+        assertTrue(html.contains("<li class=\"branch\"><span class=\"twisty\" data-tree=\"tree/sections/b/1.1\"></span><a href=\"../../sections/b/1.1\">1.1 One one</a></li>"),
+                "the level under the page's node is drawn, closed: " + html);
+        assertTrue(html.contains("<li class=\"leaf\"><a href=\"../../sections/b/1.2\">1.2 One two</a></li>"), html);
+        assertTrue(html.contains("<li class=\"branch\"><span class=\"twisty\" data-tree=\"tree/sections/b/2\"></span><a href=\"../../sections/b/2\">2 Two</a></li>"),
+                "a sibling of the branch is drawn closed: " + html);
+        assertTrue(!html.contains("1.1.1") && !html.contains("2.1"), "nothing below a closed branch is drawn: " + html);
+        assertTrue(p.tree("b", "1.1.1", "../../").contains("<li class=\"branch open\"><span class=\"twisty\" data-tree=\"tree/sections/b/1.1\"></span>"),
+                "every node above the page's node is open");
+        assertTrue(p.tree(null, null, "").contains("<a href=\"sections/b\">b</a>"), "with no book, the books");
+    }
+
+    @Test
+    void aPathEncodesEachSegmentAndABaseLeadsBackToTheTop() {
+        assertEquals("sections/%E4%B8%96%E7%95%8C%E5%8F%B2/1.2", Html.path("sections", "世界史", "1.2"));
+        assertEquals("sections/a%20b%2Fc/4.2.p1", Html.path("sections", "a b/c", "4.2.p1"));
+        assertEquals("../../", Html.base(3));
+        assertEquals("", Html.base(1));
     }
 
     @Test
@@ -56,16 +88,13 @@ class BookPanelTest {
                         new BookSections.Section("1.1.p1", "A piece.", List.of("f.md")),
                         new BookSections.Section("9.p1", "Alone.", List.of("g.md"))),
                 java.util.Set.of(), java.util.Map.of(), java.util.Map.of())), "/w");
-        List<TreeNode> t = p.sectionsTree();
-        TreeNode part = t.stream().filter(n -> n.id().equals("s:b|1")).findFirst().orElseThrow();
-        assertEquals("1 Basics", part.text(), "a part has no text: its number and title");
-        assertEquals("1", part.li_attr().get("data-node"));
-        assertEquals(null, part.li_attr().get("data-section"));
-        assertEquals("sb:b", part.parent());
-        assertEquals("s:b|1", t.stream().filter(n -> n.id().equals("s:b|1.1")).findFirst().orElseThrow().parent());
-        assertEquals("s:b|1.1", t.stream().filter(n -> n.id().equals("s:b|1.1.p1")).findFirst().orElseThrow().parent(), "a piece stands under the section it was cut from");
-        assertEquals("s:b|2", t.stream().filter(n -> n.id().equals("s:b|2.2.3")).findFirst().orElseThrow().parent(), "a node whose parent the table of contents lacks stands under the nearest node above it");
-        assertEquals("sb:b", t.stream().filter(n -> n.id().equals("s:b|9.p1")).findFirst().orElseThrow().parent(), "a piece whose parent is unknown stands under the book");
+        List<String> top = p.children("b", null).stream().map(BookPanel.TocEntry::number).toList();
+        assertEquals(List.of("1", "2", "9.p1"), top, "a piece whose parent is unknown stands under the book");
+        assertEquals("1 Basics", p.children("b", null).get(0).label(), "a part has no text: its number and title");
+        assertEquals(List.of("1.1"), p.children("b", "1").stream().map(BookPanel.TocEntry::number).toList());
+        assertEquals(List.of("1.1.p1"), p.children("b", "1.1").stream().map(BookPanel.TocEntry::number).toList(), "a piece stands under the section it was cut from");
+        assertEquals(List.of("2.2.3"), p.children("b", "2").stream().map(BookPanel.TocEntry::number).toList(),
+                "a node whose parent the table of contents lacks stands under the nearest node above it");
     }
 
     @Test
@@ -91,16 +120,25 @@ class BookPanelTest {
                 List.of(new BookSections.Section("3.2", "x", List.of("f.md"))), java.util.Set.of(), java.util.Map.of(), java.util.Map.of(),
                 java.util.Map.of(), java.util.Map.of("3.2", new com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout("comment", "partition",
                         List.of())))), "/w");
-        assertTrue(p.sectionsTree().get(1).text().endsWith(" · partition of comment"), p.sectionsTree().get(1).text());
+        assertTrue(p.children("core", null).get(0).label().endsWith(" · partition of comment"), p.children("core", null).get(0).label());
     }
 
     @Test
     void aNodeShowsWhereItStandsWhatIsUnderItAndItsText() {
-        String html = panel().node("core", "4.1");
+        String html = panel().section("core", "4.1", "md", null);
         assertTrue(html.contains("<h2>4.1 Introduction</h2>"), html);
-        assertTrue(html.contains("data-node=\"4\">4 Objects and Classes</a>"), html);
-        assertTrue(html.contains("<h3>Under it</h3><div class=\"child\"><a href=\"#\" class=\"node-link\" data-book=\"core\" data-node=\"4.1.1\">4.1.1 Classes</a>"), html);
-        assertTrue(html.contains("class=\"section-link\" data-book=\"core\" data-section=\"4.1\">0 chars</a>"), html);
+        assertTrue(html.contains("<h3>Where it stands</h3><div class=\"child\"><a href=\"../../sections/core\">core</a> → <a href=\"../../sections/core/4\">4 Objects and Classes</a></div>"), html);
+        assertTrue(html.contains("<h3>Under it</h3><div class=\"child\"><a href=\"../../sections/core/4.1.1\">4.1.1 Classes</a></div>"), html);
+        assertTrue(html.indexOf("Under it") < html.indexOf("Read from"), "the node's place first, then its section: " + html);
+        // a node with no section of its own, in a book whose text has been cut, and in one whose text has not
+        BookPanel parts = new BookPanel(List.of(new BookPanel.Book("b", "/w/books/b",
+                List.of(new BookOutline.Node("1", "part", "Basics", null, "f.md"), new BookOutline.Node("1.1", "chapter", "Types", "1", "f.md")),
+                List.of(new BookSections.Section("1.1", "Types text.", List.of("f.md"))), java.util.Set.of(), java.util.Map.of(), java.util.Map.of()),
+                new BookPanel.Book("c", "/w/books/c", List.of(new BookOutline.Node("1", "chapter", "Uncut", null, "f.md")),
+                        List.of(), java.util.Set.of(), java.util.Map.of(), java.util.Map.of())), "/w");
+        assertTrue(parts.section("b", "1", "md", null).contains("(no text of its own: the nodes under it hold it)"));
+        assertTrue(parts.section("c", "1", "md", null).contains("(book-sections.yaml has not been run for this book)"));
+        assertTrue(parts.section("b", "9", "md", null).contains("No node 9 in b."));
     }
 
     @Test
@@ -138,7 +176,7 @@ class BookPanelTest {
         var rules = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules("4.1.1",
                 "(defrule title -> \"4.1.1. Classes\")", java.util.Map.of("b2.txt", "class A {}"), 12);
         String html = panel().section("core", "4.1.1", "rst", rules);
-        assertTrue(html.contains("class=\"raw-view section-view active\" data-view=\"rst\""), html);
+        assertTrue(html.contains("<a href=\"../../sections/core/4.1.1\" class=\"raw-view\">markdown</a><a href=\"../../sections/core/4.1.1?view=rst\" class=\"raw-view active\">rst-on-lisp</a>"), html);
         assertTrue(html.contains("<pre class=\"raw lisp\">(defrule title -&gt; &quot;4.1.1. Classes&quot;)</pre>"), html);
         assertTrue(html.contains("<div class=\"raw-path\">b2.txt</div><pre class=\"raw\">class A {}</pre>"), html);
         assertTrue(panel().section("core", "4.1", "rst", null).contains("(no rule file yet"));
@@ -267,7 +305,7 @@ class BookPanelTest {
                 List.of(new BookOutline.Node("1.2.5", "subsection", "Secure", null, "f.md")),
                 List.of(new BookSections.Section("1.2.5", "x", List.of("f.md"))), java.util.Set.of("1.2.5"), java.util.Map.of(), java.util.Map.of(),
                 java.util.Map.of(), java.util.Map.of(), java.util.Map.of("1.2.5", groups))), "/w");
-        assertEquals("1.2.5 Secure  · 2 units: sequence of reason for security; set of attacks Java prevents", p.sectionsTree().get(1).text());
+        assertEquals("1.2.5 Secure  · 2 units: sequence of reason for security; set of attacks Java prevents", p.children("core", null).get(0).label());
         String html = p.section("core", "1.2.5", "md", new com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules("1.2.5", rules, java.util.Map.of(), 0),
                 null, null, java.util.Map.of(), groups);
         assertTrue(html.contains("<span class=\"group-range\">b2</span> <b>attacks Java prevents</b> <span class=\"group-type\">set</span>"), html);

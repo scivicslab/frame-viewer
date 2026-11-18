@@ -63,62 +63,189 @@ public final class BookPanel {
         public static final FrameData NONE = new FrameData(List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
+    /** One node of a book's table of contents as the left tree shows it: its number, its label, and whether nodes stand under it. */
+    public record TocEntry(String book, String number, String label, boolean branch) {}
+
+    /** One book's table of contents as a tree: the numbers under each number ({@code ""} for the book), and each number's parent. */
+    private record Toc(Map<String, List<String>> under, Map<String, String> parent, Map<String, BookOutline.Node> nodes,
+            Map<String, BookSections.Section> sections) {}
+
     private final Map<String, Book> books = new LinkedHashMap<>();
+    private final Map<String, Toc> tocs = new java.util.HashMap<>();
     private final String worksDir;
 
     /** @param worksDir the works directory, absolute, to give a page file a path under it for its edit link */
     public BookPanel(List<Book> books, String worksDir) {
-        for (Book b : books) this.books.put(b.name(), b);
+        for (Book b : books) {
+            this.books.put(b.name(), b);
+            tocs.put(b.name(), toc(b));
+        }
         this.worksDir = worksDir.endsWith("/") ? worksDir : worksDir + "/";
     }
 
     /**
-     * The Sections tab: one root per book, and under it the book's table of contents as a tree -- its parts, chapters,
-     * sections and subsections under their parents. A node that has text carries its section's label (its length, how many
-     * files it spans, what has been read of it); a node without text (a part, or a chapter that only holds sections) carries
-     * its number and title. A section the table of contents does not name (a big section cut into pieces, {@code 4.2.p1}) stands
-     * under the node whose number is its own with the last piece dropped, or else under the book.
+     * A book's table of contents as a tree: its parts, chapters, sections and subsections under their parents, in the
+     * order of the table of contents. A section the table of contents does not name (a big section cut into pieces,
+     * {@code 4.2.p1}) stands under the node whose number is its own with the last piece dropped, or else under the book.
      */
-    public List<TreeNode> sectionsTree() {
-        List<TreeNode> out = new ArrayList<>();
-        for (Book b : books.values()) {
-            String root = "sb:" + b.name();
-            out.add(new TreeNode(root, "#", b.name() + " (" + b.sections().size() + " sections)", Map.of()));
-            Map<String, BookOutline.Node> nodes = nodes(b);
-            Map<String, BookSections.Section> sections = new LinkedHashMap<>();
-            for (BookSections.Section s : b.sections()) sections.put(s.number(), s);
-            java.util.Set<String> known = new java.util.HashSet<>(nodes.keySet());
-            known.addAll(sections.keySet());
-            for (BookOutline.Node n : b.outline()) {
-                String parent = parentOf(b.name(), root, n.number(), n.parent(), known);
-                BookSections.Section s = sections.get(n.number());
-                out.add(s != null
-                        ? new TreeNode(sectionId(b.name(), n.number()), parent, sectionLabel(b, s, n.title()),
-                                Map.of("data-book", b.name(), "data-section", n.number(), "data-level", n.level()))
-                        : new TreeNode(sectionId(b.name(), n.number()), parent, n.number() + " " + n.title(),
-                                Map.of("data-book", b.name(), "data-node", n.number(), "data-level", n.level())));
-            }
-            for (BookSections.Section s : b.sections()) {
-                if (nodes.containsKey(s.number())) continue;
-                out.add(new TreeNode(sectionId(b.name(), s.number()), parentOf(b.name(), root, s.number(), null, known), sectionLabel(b, s, ""),
-                        Map.of("data-book", b.name(), "data-section", s.number())));
-            }
+    private static Toc toc(Book b) {
+        Map<String, BookOutline.Node> nodes = nodes(b);
+        Map<String, BookSections.Section> sections = new LinkedHashMap<>();
+        for (BookSections.Section s : b.sections()) sections.put(s.number(), s);
+        java.util.Set<String> known = new java.util.HashSet<>(nodes.keySet());
+        known.addAll(sections.keySet());
+        Map<String, List<String>> under = new java.util.HashMap<>();
+        Map<String, String> parent = new java.util.HashMap<>();
+        java.util.function.BiConsumer<String, String> put = (number, declared) -> {
+            String p = parentOf(number, declared, known);
+            parent.put(number, p);
+            under.computeIfAbsent(p, k -> new ArrayList<>()).add(number);
+        };
+        for (BookOutline.Node n : b.outline()) put.accept(n.number(), n.parent());
+        for (BookSections.Section s : b.sections()) if (!nodes.containsKey(s.number())) put.accept(s.number(), null);
+        return new Toc(under, parent, nodes, sections);
+    }
+
+    /**
+     * The number a number stands under: its parent in the table of contents when that parent is a node of the tree;
+     * else the nearest node whose number is the number with its last parts dropped ({@code 2.2.3} under {@code 2.2}, or
+     * under {@code 2} when the table of contents has no 2.2); else the book, {@code ""}.
+     */
+    private static String parentOf(String number, String declared, java.util.Set<String> known) {
+        if (declared != null && known.contains(declared)) return declared;
+        for (String up = number; up.indexOf('.') > 0; ) {
+            up = up.substring(0, up.lastIndexOf('.'));
+            if (known.contains(up)) return up;
+        }
+        return "";
+    }
+
+    /** The books in the database, in the order it lists them. */
+    public List<String> books() {
+        return List.copyOf(books.keySet());
+    }
+
+    /** Whether the book holds a node of its table of contents, or a section, with this number; with a null number, whether the book is there. */
+    public boolean has(String book, String number) {
+        Toc t = tocs.get(book);
+        return t != null && (number == null || t.parent().containsKey(number));
+    }
+
+    /**
+     * The nodes that stand right under a number of a book's table of contents, or under the book itself when the number is
+     * {@code null}: what the left tree shows when that branch is opened. {@code null} when there is no such book or number.
+     */
+    public List<TocEntry> children(String book, String number) {
+        Book b = books.get(book);
+        if (b == null || (number != null && !has(book, number))) return null;
+        Toc t = tocs.get(book);
+        List<TocEntry> out = new ArrayList<>();
+        for (String k : t.under().getOrDefault(number == null ? "" : number, List.of())) {
+            out.add(new TocEntry(book, k, label(b, t, k), t.under().containsKey(k)));
         }
         return out;
     }
 
+    /** The numbers above a number, from the top of the book down, without the number itself. */
+    private List<String> above(String book, String number) {
+        Toc t = tocs.get(book);
+        List<String> up = new ArrayList<>();
+        for (String p = t.parent().get(number); p != null && !p.isEmpty(); p = t.parent().get(p)) up.add(0, p);
+        return up;
+    }
+
+    /** A node's label in the tree: a section's label when it has text, else its number and title. */
+    private String label(Book b, Toc t, String number) {
+        BookOutline.Node n = t.nodes().get(number);
+        BookSections.Section s = t.sections().get(number);
+        return s != null ? sectionLabel(b, s, n == null ? "" : n.title()) : number + " " + n.title();
+    }
+
     /**
-     * The tree node a number stands under: its parent in the table of contents when that parent is a node of the tree;
-     * else the nearest node whose number is the number with its last parts dropped ({@code 2.2.3} under {@code 2.2}, or
-     * under {@code 2} when the table of contents has no 2.2); else the book.
+     * The left tree of a Sections page, as HTML: the books when no book is given; else the book's table of contents with
+     * only the branch down to {@code number} open -- every node at each level of that branch, and the nodes right under
+     * {@code number} -- and {@code number} marked. A closed branch carries the path of its children ({@code tree/...}), which
+     * the page's script reads when it is opened; every node is a link to its page.
+     *
+     * @param base the {@code ../} leading from the page back to the top
      */
-    private static String parentOf(String book, String root, String number, String declared, java.util.Set<String> known) {
-        if (declared != null && known.contains(declared)) return sectionId(book, declared);
-        for (String up = number; up.indexOf('.') > 0; ) {
-            up = up.substring(0, up.lastIndexOf('.'));
-            if (known.contains(up)) return sectionId(book, up);
+    public String tree(String book, String number, String base) {
+        StringBuilder sb = new StringBuilder();
+        if (book == null || !books.containsKey(book)) {
+            sb.append("<ul class=\"toc\">");
+            for (Book b : books.values()) {
+                sb.append("<li class=\"branch\"><span class=\"twisty\" data-tree=\"").append(Html.esc(Html.path("tree", "sections", b.name())))
+                  .append("\"></span><a href=\"").append(Html.esc(base + Html.path("sections", b.name()))).append("\">").append(Html.esc(b.name()))
+                  .append("</a> <span class=\"hint\">").append(b.sections().size()).append(" sections</span></li>");
+            }
+            return sb.append("</ul>").toString();
         }
-        return root;
+        List<String> open = number == null ? List.of() : new ArrayList<>(above(book, number));
+        if (number != null) open.add(number);
+        sb.append("<div class=\"toc-head\"><a href=\"").append(Html.esc(base + "sections")).append("\">all books</a> › <a href=\"")
+          .append(Html.esc(base + Html.path("sections", book))).append("\"").append(number == null ? " class=\"current\"" : "").append(">")
+          .append(Html.esc(book)).append("</a></div>");
+        treeLevel(book, null, open, 0, number, base, sb);
+        return sb.toString();
+    }
+
+    private void treeLevel(String book, String under, List<String> open, int depth, String current, String base, StringBuilder sb) {
+        sb.append("<ul class=\"toc\">");
+        for (TocEntry e : children(book, under)) {
+            boolean isOpen = depth < open.size() && open.get(depth).equals(e.number());
+            boolean expanded = isOpen && e.branch();
+            sb.append("<li class=\"").append(e.branch() ? (expanded ? "branch open" : "branch") : "leaf").append("\">");
+            if (e.branch()) sb.append("<span class=\"twisty\" data-tree=\"").append(Html.esc(Html.path("tree", "sections", book, e.number()))).append("\"></span>");
+            sb.append("<a href=\"").append(Html.esc(base + Html.path("sections", book, e.number()))).append("\"")
+              .append(e.number().equals(current) ? " class=\"current\"" : "").append(">").append(Html.esc(e.label())).append("</a>");
+            if (expanded) treeLevel(book, e.number(), open, depth + 1, current, base, sb);
+            sb.append("</li>");
+        }
+        sb.append("</ul>");
+    }
+
+    /** The page {@code sections}: every book, each a link to its page. */
+    public String booksBody(String base) {
+        StringBuilder sb = new StringBuilder("<h2>Books</h2>");
+        if (books.isEmpty()) return sb.append("<p class=\"hint\">(no book in the database yet: book-toc.yaml has not been run)</p>").toString();
+        sb.append("<ul class=\"book-list\">");
+        for (Book b : books.values()) {
+            sb.append("<li><a href=\"").append(Html.esc(base + Html.path("sections", b.name()))).append("\">").append(Html.esc(b.name()))
+              .append("</a> <span class=\"hint\">").append(b.sections().size()).append(" sections</span></li>");
+        }
+        return sb.append("</ul>").toString();
+    }
+
+    /** The page {@code sections/<book>}: where the book is kept, and the nodes right under it, each a link to its page. */
+    public String bookBody(String book, String base) {
+        Book b = books.get(book);
+        StringBuilder sb = new StringBuilder("<h2>").append(Html.esc(book)).append("</h2>");
+        sb.append("<div class=\"raw-path\">").append(Html.esc(b.dir())).append(" · ").append(b.sections().size()).append(" sections</div>");
+        sb.append("<h3>Under it</h3>");
+        List<TocEntry> top = children(book, null);
+        if (top.isEmpty()) sb.append("<p class=\"hint\">(no table of contents)</p>");
+        for (TocEntry e : top) sb.append("<div class=\"child\">").append(Html.sectionLink(base, book, e.number(), e.label())).append("</div>");
+        return sb.toString();
+    }
+
+    /** The section a search hit names, by its id {@code s:<book>|<number>}: the book and the number. */
+    static String[] bookAndNumber(String id) {
+        int bar = id.indexOf('|');
+        return new String[] {id.substring(2, bar), id.substring(bar + 1)};
+    }
+
+    /** The page {@code search?in=sections}: each node that holds every word, a link to its page, with where the words were found. */
+    public String searchBody(String q, List<Search.Hit> hits, String base) {
+        StringBuilder sb = new StringBuilder("<h2>Search the books: ").append(Html.esc(q)).append("</h2>");
+        sb.append("<p class=\"hint\">").append(hits.isEmpty() ? "none found" : hits.size() + " found").append("</p><ul class=\"search-hits\">");
+        for (Search.Hit h : hits) {
+            String[] bn = bookAndNumber(h.id());
+            Book b = books.get(bn[0]);
+            sb.append("<li><span class=\"hint\">").append(Html.esc(bn[0])).append("</span> ")
+              .append(Html.sectionLink(base, bn[0], bn[1], label(b, tocs.get(bn[0]), bn[1]))).append(" <span class=\"hint\">in ")
+              .append(Html.esc(h.where())).append("</span></li>");
+        }
+        return sb.append("</ul>").toString();
     }
 
     private static String sectionId(String book, String number) {
@@ -166,37 +293,9 @@ public final class BookPanel {
         return out;
     }
 
-    /** The panel of a node without text in the Sections tab: one node, where it stands, what is under it, and the link to its text. */
-    public String node(String book, String number) {
-        Book b = books.get(book);
-        if (b == null) return "<p class=\"hint\">No book " + Html.esc(book) + " in the database.</p>";
-        Map<String, BookOutline.Node> nodes = nodes(b);
-        BookOutline.Node n = nodes.get(number);
-        if (n == null) return "<p class=\"hint\">No node " + Html.esc(number) + " in " + Html.esc(book) + ".</p>";
-        StringBuilder sb = new StringBuilder();
-        sb.append("<h2>").append(Html.esc(n.number() + " " + n.title())).append("</h2>");
-        sb.append("<div class=\"raw-path\">").append(Html.esc(book)).append(" · ").append(Html.esc(n.level())).append("</div>");
-        sb.append("<h3>Where it stands</h3><div class=\"child\">");
-        List<BookOutline.Node> up = new ArrayList<>();
-        for (BookOutline.Node p = n.parent() == null ? null : nodes.get(n.parent()); p != null; p = p.parent() == null ? null : nodes.get(p.parent())) up.add(0, p);
-        if (up.isEmpty()) sb.append("<span class=\"hint\">(the top of the book)</span>");
-        for (int i = 0; i < up.size(); i++) sb.append(i > 0 ? " → " : "").append(nodeLink(book, up.get(i)));
-        sb.append("</div>");
-        List<BookOutline.Node> kids = b.outline().stream().filter(x -> number.equals(x.parent())).toList();
-        if (!kids.isEmpty()) {
-            sb.append("<h3>Under it</h3>");
-            for (BookOutline.Node k : kids) sb.append("<div class=\"child\">").append(nodeLink(book, k)).append("</div>");
-        }
-        sb.append("<h3>Its text</h3><div class=\"child\">");
-        BookSections.Section s = b.sections().stream().filter(x -> x.number().equals(number)).findFirst().orElse(null);
-        if (s == null) sb.append("<span class=\"hint\">(book-sections.yaml has not been run for this book)</span>");
-        else sb.append(sectionLink(book, s.number(), s.text().length() + " chars" + (s.files().size() > 1 ? ", " + s.files().size() + " files" : "")));
-        sb.append("</div><h3>First found in</h3><div class=\"raw-path\">").append(Html.esc(n.firstFile())).append("</div>");
-        return sb.toString();
-    }
-
     /**
-     * The Sections tab's panel: one section, with the page files it was read from, the concepts it explains (step 4),
+     * The page of one node of a book's table of contents ({@code sections/<book>/<number>}): where it stands and what is under
+     * it, then the section of the same number, with the page files it was read from, the concepts it explains (step 4),
      * and either its markdown text ({@code view} {@code md}) or its rst-on-lisp rule file with its code files ({@code rst}).
      *
      * @param rules the section's rule file, or {@code null} when it has none yet
@@ -259,8 +358,22 @@ public final class BookPanel {
         return section(book, number, view, rules, listed, pattern, items, groups == null ? FrameData.NONE : new FrameData(groups, List.of(), List.of(), List.of(), List.of()));
     }
 
-    /** As the method above, with all the frame data workflow read of the section: its units, and their causes and motives and properties. */
+    /** As the method below, on the page {@code sections/<book>/<number>}, two levels below the top. */
     public String section(String book, String number, String view, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
+            List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed,
+            com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
+            Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items,
+            FrameData data) {
+        return section(book, number, view, Html.base(3), rules, listed, pattern, items, data);
+    }
+
+    /**
+     * The page of one node, with all the frame data workflow read of its section: its units, and their causes and motives
+     * and properties.
+     *
+     * @param base the {@code ../} leading from the page back to the top, put before every link to another page
+     */
+    public String section(String book, String number, String view, String base, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules,
             List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.ListedConcept> listed,
             com.scivicslab.turingworkflow.plugins.rstframe.SectionPattern.Layout pattern,
             Map<String, List<com.scivicslab.turingworkflow.plugins.rstframe.BookStore.FrameItem>> items,
@@ -268,13 +381,30 @@ public final class BookPanel {
         var groups = data.groups();
         Book b = books.get(book);
         if (b == null) return "<p class=\"hint\">No book " + Html.esc(book) + " in the database.</p>";
-        BookSections.Section s = b.sections().stream().filter(x -> x.number().equals(number)).findFirst().orElse(null);
-        if (s == null) return "<p class=\"hint\">No section " + Html.esc(number) + " in " + Html.esc(book) + ".</p>";
-        BookOutline.Node n = nodes(b).get(number);
+        if (!has(book, number)) return "<p class=\"hint\">No node " + Html.esc(number) + " in " + Html.esc(book) + ".</p>";
+        Toc t = tocs.get(book);
+        BookSections.Section s = t.sections().get(number);
+        BookOutline.Node n = t.nodes().get(number);
         StringBuilder sb = new StringBuilder();
         sb.append("<h2>").append(Html.esc(number + " " + (n == null ? "" : n.title()))).append("</h2>");
-        sb.append("<div class=\"raw-path\">").append(Html.esc(book)).append(" · ").append(s.text().length()).append(" chars · ")
-          .append(n == null ? "" : nodeLink(book, n, "in the table of contents")).append("</div>");
+        sb.append("<div class=\"raw-path\"><a href=\"").append(Html.esc(base + Html.path("sections", book))).append("\">").append(Html.esc(book)).append("</a>")
+          .append(n == null ? "" : " · " + Html.esc(n.level())).append(s == null ? "" : " · " + s.text().length() + " chars").append("</div>");
+        // where it stands in the table of contents, and what stands under it, as the left tree shows them
+        sb.append("<h3>Where it stands</h3><div class=\"child\"><a href=\"").append(Html.esc(base + Html.path("sections", book))).append("\">")
+          .append(Html.esc(book)).append("</a>");
+        for (String up : above(book, number)) sb.append(" → ").append(Html.sectionLink(base, book, up, up + " " + titleOf(t, up)));
+        sb.append("</div>");
+        List<TocEntry> kids = children(book, number);
+        if (!kids.isEmpty()) {
+            sb.append("<h3>Under it</h3>");
+            for (TocEntry k : kids) sb.append("<div class=\"child\">").append(Html.sectionLink(base, book, k.number(), k.number() + " " + titleOf(t, k.number()))).append("</div>");
+        }
+        if (s == null) {
+            sb.append("<h3>Its text</h3><p class=\"hint\">").append(b.sections().isEmpty()
+                    ? "(book-sections.yaml has not been run for this book)" : "(no text of its own: the nodes under it hold it)").append("</p>");
+            if (n != null) sb.append("<h3>First found in</h3><div class=\"raw-path\">").append(Html.esc(n.firstFile())).append("</div>");
+            return sb.toString();
+        }
         sb.append("<h3>Read from</h3>");
         for (String f : s.files()) {
             String abs = b.dir().endsWith("/") ? b.dir() + f : b.dir() + "/" + f;
@@ -284,7 +414,7 @@ public final class BookPanel {
         }
         boolean grouped = groups != null && !groups.isEmpty();
         if (grouped) {
-            structure(data, rules, sb);
+            structure(data, rules, base, sb);
             sb.append("<details class=\"earlier\"><summary>Results of the earlier steps: the main concept and each block's relation to it, "
                     + "the concepts listed, how they relate, the concrete frame material</summary>");
         }
@@ -323,11 +453,11 @@ public final class BookPanel {
         frame(b.frame().get(number), rules == null ? null : rules.rules(), items == null ? Map.of() : items, sb);
         if (grouped) sb.append("</details>");
         boolean rst = "rst".equals(view);
+        // the two views are two URLs of the same page: the markdown with no query, the rule file with ?view=rst
+        String here = base + Html.path("sections", book, number);
         sb.append(grouped ? "<h3>Its source <span class=\"raw-views\">" : "<h3>Its text <span class=\"raw-views\">")
-          .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? "" : " active").append("\" data-view=\"md\" data-book=\"")
-          .append(Html.esc(book)).append("\" data-section=\"").append(Html.esc(number)).append("\">markdown</a>")
-          .append("<a href=\"#\" class=\"raw-view section-view").append(rst ? " active" : "").append("\" data-view=\"rst\" data-book=\"")
-          .append(Html.esc(book)).append("\" data-section=\"").append(Html.esc(number)).append("\">rst-on-lisp</a></span></h3>");
+          .append("<a href=\"").append(Html.esc(here)).append("\" class=\"raw-view").append(rst ? "" : " active").append("\">markdown</a>")
+          .append("<a href=\"").append(Html.esc(here + "?view=rst")).append("\" class=\"raw-view").append(rst ? " active" : "").append("\">rst-on-lisp</a></span></h3>");
         if (!rst) {
             if (s.text().isEmpty()) sb.append("<p class=\"hint\">(no text of its own: its subsections hold it)</p>");
             else sb.append("<pre class=\"raw md\">").append(Html.esc(s.text())).append("</pre>");
@@ -360,7 +490,7 @@ public final class BookPanel {
      * nucleus, the paragraph level, cause and motive marked; and what the group's main concept is tied to, the concept
      * level. A block in no group stands where it is, marked as left out.
      */
-    private static void structure(FrameData data, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules, StringBuilder sb) {
+    private static void structure(FrameData data, com.scivicslab.turingworkflow.plugins.rstframe.BookStore.SectionRules rules, String base, StringBuilder sb) {
         var groups = data.groups();
         var causes = data.causes();
         var properties = data.properties();
@@ -376,7 +506,7 @@ public final class BookPanel {
             var g = groupOf.get(bl.name());
             if (open != null && g != open) {
                 sb.append("</div>");
-                concepts(open, causes, properties, data.relations(), data.similar(), sb);
+                concepts(open, causes, properties, data.relations(), data.similar(), base, sb);
                 sb.append("</div>");
                 open = null;
             }
@@ -392,7 +522,7 @@ public final class BookPanel {
         }
         if (open != null) {
             sb.append("</div>");
-            concepts(open, causes, properties, data.relations(), data.similar(), sb);
+            concepts(open, causes, properties, data.relations(), data.similar(), base, sb);
             sb.append("</div>");
         }
     }
@@ -430,7 +560,7 @@ public final class BookPanel {
     }
 
     /** What a unit's main concept is tied to: its causes and motives (step 2), its relations to other concepts (step 2b), its properties (step 3), each with where it was read. */
-    private static void concepts(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptRelations.Relation> relations, List<Similar> similar, StringBuilder sb) {
+    private static void concepts(com.scivicslab.turingworkflow.plugins.rstframe.SectionGroups.Group g, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptCauses.Link> causes, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptProperties.Property> properties, List<com.scivicslab.turingworkflow.plugins.rstframe.ConceptRelations.Relation> relations, List<Similar> similar, String base, StringBuilder sb) {
         var mine = causes.stream().filter(l -> l.group() == g.ordinal()).toList();
         sb.append("<div class=\"group-concepts\"><b>").append(Html.esc(g.concept() == null ? "its main concept" : g.concept())).append("</b><div>causes and motives ");
         if (mine.isEmpty()) sb.append("<span class=\"hint\">(none found)</span></div>");
@@ -463,8 +593,8 @@ public final class BookPanel {
         else {
             sb.append("</div><ul class=\"sims\">");
             for (var x : sims) {
-                sb.append("<li><a href=\"#\" class=\"section-link\" data-book=\"").append(Html.esc(x.otherBook())).append("\" data-section=\"")
-                  .append(Html.esc(x.otherNumber())).append("\">").append(Html.esc(x.otherNumber())).append("</a> <span class=\"sim-concept\">")
+                sb.append("<li><span class=\"hint\">").append(Html.esc(x.otherBook())).append("</span> ")
+                  .append(Html.sectionLink(base, x.otherBook(), x.otherNumber(), x.otherNumber())).append(" <span class=\"sim-concept\">")
                   .append(Html.esc(x.otherConcept())).append("</span> <span class=\"hint\">both ").append(Html.esc(x.common()))
                   .append("</span></li>");
             }
@@ -690,15 +820,9 @@ public final class BookPanel {
         return out;
     }
 
-    private static String nodeLink(String book, BookOutline.Node n) {
-        return nodeLink(book, n, n.number() + " " + n.title());
-    }
-
-    private static String nodeLink(String book, BookOutline.Node n, String text) {
-        return "<a href=\"#\" class=\"node-link\" data-book=\"" + Html.esc(book) + "\" data-node=\"" + Html.esc(n.number()) + "\">" + Html.esc(text) + "</a>";
-    }
-
-    private static String sectionLink(String book, String number, String text) {
-        return "<a href=\"#\" class=\"section-link\" data-book=\"" + Html.esc(book) + "\" data-section=\"" + Html.esc(number) + "\">" + Html.esc(text) + "</a>";
+    /** A node's title, or nothing for a section the table of contents does not name. */
+    private static String titleOf(Toc t, String number) {
+        BookOutline.Node n = t.nodes().get(number);
+        return n == null ? "" : n.title();
     }
 }

@@ -137,8 +137,8 @@ public final class RegistryPanel {
         sb.append("<h3>Its concrete frames</h3><div class=\"frame-folded\">");
         List<String> links = new ArrayList<>();
         for (BookStore.RegistryMember m : f.members()) {
-            links.add("<a href=\"#\" class=\"section-link\" data-book=\"" + Html.esc(m.book()) + "\" data-section=\"" + Html.esc(m.number()) + "\">"
-                    + Html.esc(m.number()) + "</a> " + Html.esc(m.concept()));
+            // the Integrated frames tab is still the page at the top, so the section's page is reached without any ../
+            links.add(Html.sectionLink("", m.book(), m.number(), m.number()) + " " + Html.esc(m.concept()));
         }
         sb.append(String.join(" · ", links)).append("</div>");
 

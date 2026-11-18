@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title} · Frame Viewer</title>
+  <link rel="stylesheet" href="{base}style.css?v={v}">
+</head>
+<body class="page" data-works-dir="{worksDir}" data-base="{base}">
+  <div class="topbar"><span class="brand">Frame Viewer</span>
+    <span class="tabs">
+      <a href="{base}?tab=workflows" class="tab{#if tab == 'workflows'} active{/if}" title="0. the frame-making workflows">Workflows</a>
+      <a href="{base}sections" class="tab{#if tab == 'sections'} active{/if}" title="1. a book's table of contents as a tree, and its text cut into its sections">Sections</a>
+      <a href="{base}?tab=integrated" class="tab{#if tab == 'integrated'} active{/if}" title="the generalized concept tree: the concepts of a book across its sections, and the generalized concepts above them">Integrated frames</a>
+    </span>
+    <span class="hint">Every name in a page is a link to its own page.</span></div>
+  <div class="layout page-layout">
+    <div class="tree-col">
+      <form class="tree-search" action="{base}search" method="get">
+        <input type="hidden" name="in" value="{tab}">
+        <input type="search" name="q" value="{q}" placeholder="{placeholder}">
+      </form>
+      <div class="tree">{tree.raw}</div>
+    </div>
+    <div class="panel">{body.raw}</div>
+  </div>
+  <script src="{base}pages.js?v={v}"></script>
+</body>
+</html>
