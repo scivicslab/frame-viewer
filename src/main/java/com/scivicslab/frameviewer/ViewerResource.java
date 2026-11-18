@@ -170,20 +170,15 @@ public class ViewerResource {
      * Building a second copy of every book for each search, beside the kept one, ran the viewer out of heap.
      */
     private List<Search.Hit> searchSections(BookPanel books, Search s) {
-        Path db = Path.of(booksDb).toAbsolutePath().normalize();
-        if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return List.of();
-        try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
-            return books.searchSections(s, (b, n) -> {
-                try {
-                    var r = store.sectionRules(b, n);
-                    return r == null ? null : r.rules();
-                } catch (java.sql.SQLException e) {
-                    throw new IllegalStateException(e);
-                }
-            });
-        } catch (java.sql.SQLException e) {
-            throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
-        }
+        if (!Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) return List.of();
+        return read(store -> books.searchSections(s, (b, n) -> {
+            try {
+                var r = store.sectionRules(b, n);
+                return r == null ? null : r.rules();
+            } catch (java.sql.SQLException e) {
+                throw new IllegalStateException(e);
+            }
+        }));
     }
 
     /** The text of a node's page: the node, and its section with what the workflows made of it, read from the kept books and the database. */
@@ -200,11 +195,7 @@ public class ViewerResource {
         List<BookPanel.Similar> similar = List.of();
         if (Files.isRegularFile(Path.of(Path.of(booksDb).toAbsolutePath().normalize() + ".mv.db"))) {
             Extras x = l.extras().get(book);
-            try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
-                rules = store.sectionRules(book, number);
-            } catch (java.sql.SQLException e) {
-                throw new IllegalStateException("could not read " + booksDb + ": " + e.getMessage(), e);
-            }
+            rules = read(store -> store.sectionRules(book, number));
             if (x != null) {
                 listed = x.listed().get(number);
                 pattern = x.patterns().get(number);
@@ -240,13 +231,13 @@ public class ViewerResource {
 
     /**
      * Gives {@code use} the registry panel: the frames, their items and relations as {@link #loaded()} keeps them; a frame's
-     * material and its sections' rule files only when a frame is shown, by their keys, over one connection for the request.
+     * material and its sections' rule files only when a frame is shown, by their keys, over the viewer's one store.
      */
     <T> T withRegistry(java.util.function.Function<RegistryPanel, T> use) {
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
         Loaded l = loaded();
         if (!Files.isRegularFile(Path.of(db + ".mv.db"))) return use.apply(new RegistryPanel(List.of(), Map.of(), List.of(), (b, k) -> null, (b, n) -> null));
-        try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
+        return read(store -> {
             Map<String, String> files = new java.util.HashMap<>();
             RegistryPanel panel = new RegistryPanel(l.registry().frames(), l.registry().items(), l.registry().relations(),
                     (b, key) -> {
@@ -266,8 +257,28 @@ public class ViewerResource {
                         }
                     }).transform(t -> t.isEmpty() ? null : t));
             return use.apply(panel);
+        });
+    }
+
+    /** A read of the database that may throw what JDBC throws. */
+    @FunctionalInterface
+    interface Read<T> {
+        T from(com.scivicslab.turingworkflow.plugins.rstframe.BookStore store) throws java.sql.SQLException;
+    }
+
+    /** The viewer's one store of the database, opened for reading on the first read and kept while the viewer runs. */
+    private com.scivicslab.turingworkflow.plugins.rstframe.BookStore store;
+
+    /**
+     * Reads the database through the viewer's one store, one read at a time. The store is opened for reading: it runs no
+     * DDL, and refuses a database that is not at the schema version the plugin reads (BookImport migrate converts an old one).
+     */
+    synchronized <T> T read(Read<T> read) {
+        try {
+            if (store == null) store = com.scivicslab.turingworkflow.plugins.rstframe.BookStore.forReading(booksUrl());
+            return read.from(store);
         } catch (java.sql.SQLException e) {
-            throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
+            throw new IllegalStateException("could not read " + Path.of(booksDb).toAbsolutePath().normalize() + ": " + e.getMessage(), e);
         }
     }
 
@@ -302,26 +313,22 @@ public class ViewerResource {
     private volatile Loaded loaded;
 
     /**
-     * Every book and the registry, read once and kept until the database file changes: a run of a workflow writes the file,
-     * and its result shows on the next click. Reading every book on every click filled the viewer's heap and made a panel
-     * take seconds.
+     * Every book and the registry, read once and kept until the database's change count ({@code data_version}) moves: every
+     * write of a workflow adds one, and its result shows on the next click. The file's time and size are not watched: H2
+     * writes the file whenever a process opens it, so the books were read again on clicks that changed nothing. Reading
+     * every book on every click filled the viewer's heap and made a page take seconds.
      */
     synchronized Loaded loaded() {
         Path db = Path.of(booksDb).toAbsolutePath().normalize();
         Path file = Path.of(db + ".mv.db");
-        String stamp;
-        try {
-            stamp = Files.isRegularFile(file) ? Files.getLastModifiedTime(file).toMillis() + "/" + Files.size(file) : "none";
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        String stamp = Files.isRegularFile(file) ? "data version " + read(com.scivicslab.turingworkflow.plugins.rstframe.BookStore::dataVersion) : "none";
         Loaded l = loaded;
         if (l != null && l.stamp().equals(stamp)) return l;
         if (stamp.equals("none")) {
             l = new Loaded(stamp, new BookPanel(List.of(), Path.of(worksDir).toAbsolutePath().normalize().toString()), Map.of(),
                     new Registry(List.of(), Map.of(), List.of()));
         } else {
-            try (var store = new com.scivicslab.turingworkflow.plugins.rstframe.BookStore(booksUrl())) {
+            l = read(store -> {
                 Map<String, Extras> extras = new java.util.HashMap<>();
                 // the similar concepts of each unit, judged from either side, by book and section
                 Map<String, Map<String, List<BookPanel.Similar>>> similar = new java.util.HashMap<>();
@@ -336,10 +343,8 @@ public class ViewerResource {
                             store.properties(b), store.relationsOfConcepts(b),
                             similar.getOrDefault(b, Map.of())));
                 }
-                l = new Loaded(stamp, bookPanel(store), extras, new Registry(store.registry(), store.registryItems(), store.frameRelations()));
-            } catch (java.sql.SQLException e) {
-                throw new IllegalStateException("could not read " + db + ": " + e.getMessage(), e);
-            }
+                return new Loaded(stamp, bookPanel(store), extras, new Registry(store.registry(), store.registryItems(), store.frameRelations()));
+            });
         }
         loaded = l;
         return l;

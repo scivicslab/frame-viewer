@@ -107,3 +107,15 @@ CLOB の列を読むと、H2 は読んだ値をファイルの中の一時的な
    - plugin-rst-frame の単体テスト（一時ディレクトリの H2 ファイル、外部サービスなし）：長い文を書き、開き直して落ち着かせたあと、全部の読み取りを 20 回して `info.FILE_WRITE` が増えないこと。`save*` のあと `data_version` が上がり、読むだけでは上がらないこと。`forReading` が DDL を流さず、版が違えば止まること。CLOB のデータベースを移行すると、行数・字数・ハッシュが保たれ、CLOB の列が残らないこと。
    - Frame Viewer：版の数が同じあいだは本を読み直さないこと（要求 2 回目が速い）、書いたあとは読み直すこと。
    - 複製で：移行 → Frame Viewer を立てて Playwright でページを 50 枚開く → ファイルの大きさと `info.FILE_WRITE` が開いた直後から増えないことを数で示す。
+
+## 段階 2（2026-11-19）：実装と、複製での移行
+
+利用者が段階 1 の提案を 3 点とも承認した（構造、chat-ui-with-audit-trail との入れ替え、実験の表は消さずに移行）。
+
+- [x] plugin-rst-frame：`BookSchema`（`schema_version`、版 2）、`BookStore.forWriting`・`forReading`、`data_version`（書く 25 のメソッドが同じトランザクションで 1 足す。自動コミットで書いていた 12 は、トランザクションに包んだ）、`BookMigration`（`BookImport migrate <db>`）
+- [x] 書く側は版の付いていない古いデータベースを変換しない（`BookImport migrate` を促して止まる）。変換は控えを取る `migrate` だけが行う。新しい plugin の chat-ui が、移行の前に本物を書き換え始めないため
+- [x] Frame Viewer：`forReading` を 1 つ保ち、本は `data_version` が動いたときだけ読み直す
+- [x] 単体テスト：plugin-rst-frame 162 本（新しい `BookStoreStorageTest` 5 本）、Frame Viewer 25 本（新しい `BooksCacheTest`）。W206 で `rm -rf target` のあと、POJO-actor（270）・Turing-workflow（372）を `install`、続けて plugin、frame-viewer
+- [x] 複製で移行：26 秒、37 表すべて行数・字数・行のハッシュが一致、22 列を変換、658 MB → 302 MB、控えの sha256 は本物と同じ
+- [x] 50 ページ：移行した複製と新しい Frame Viewer で、書き込み 0 回、大きさ・更新時刻とも変わらず、0.3 秒。比べに、移行前の複製と前の版（`ca22b59`）では 237 回・685 MB 書き、658 → 942 MB、79 秒
+- [x] Chromium の確かめ（全部 PASS、スクリプトなしの読み手も PASS）を移行した複製で行った
