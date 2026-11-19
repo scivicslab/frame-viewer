@@ -1,8 +1,9 @@
-// The drawing in the Integrated frames tab: the generalized frames of the registry and the relations between them, drawn around one frame
-// with Cytoscape.js. The frame chosen sits in the middle; the frames it is related to, up to the depth chosen, are laid
-// out around it by fCoSE. The is-a tree is drawn as nesting: a frame shown with the frame above it in the tree sits in
-// that frame's box. The other relations are arrows, coloured by kind. Clicking a frame moves the middle to it and shows
-// its panel on the right; the view zooms and pans with the wheel and the mouse.
+// The drawing on the Integrated frames pages: the generalized frames of the registry and the relations between them, drawn
+// with Cytoscape.js, either around one frame or all of them. The frame of the page sits in the middle; the frames it is
+// related to, up to the depth chosen, are laid out around it by fCoSE. The is-a tree is drawn as nesting: a frame shown
+// with the frame above it in the tree sits in that frame's box. The other relations are arrows, coloured by kind.
+// Clicking a frame calls onFocus with its id (the page goes to that frame's page); the view zooms and pans with the wheel
+// and the mouse. Every relation drawn is also written as a link in the page's text.
 (function () {
   var KINDS = {
     'is-a (tree)': { color: '#2b6cb0', label: 'is-a (the tree, drawn as a box)', style: 'solid', width: 2.5 },
@@ -47,7 +48,10 @@
   }
 
   window.RelationsGraph = function ($pane, onFocus) {
-    var graph = null, byId = {}, adj = {}, parentOf = {}, shown = {}, depth = 1, focusId = null;
+    var graph = null, byId = {}, adj = {}, parentOf = {}, shown = {}, depth = 1, focusId = null, wholeShown = false;
+    // the depth chosen is kept for the next page
+    try { depth = parseInt(localStorage.getItem('frame-viewer-graph-depth'), 10) || 1; } catch (e) { }
+    $pane.find('.graph-depth').val(String(depth));
     var cy = cytoscape({ container: $pane.find('.graph')[0], style: styles(), wheelSensitivity: 0.25, minZoom: 0.15, maxZoom: 3 });
     // fitting a few frames would blow them up; a fit stops at this zoom
     var FIT_ZOOM = 1.2;
@@ -60,7 +64,7 @@
       Object.keys(KINDS).forEach(function (k) {
         var $c = $('<label class="graph-kind"></label>');
         $('<input type="checkbox">').prop('checked', kindOn(k)).on('change', function () {
-          shown[k] = this.checked; if (focusId) focus(focusId, true);
+          shown[k] = this.checked; redraw();
         }).appendTo($c);
         $('<span class="swatch"></span>').css({ background: KINDS[k].color, opacity: KINDS[k].style === 'dashed' ? 0.6 : 1 }).appendTo($c);
         $c.append(document.createTextNode(KINDS[k].label));
@@ -69,7 +73,8 @@
     }
 
     function load(done) {
-      $.getJSON('registry-graph', function (g) {
+      // the route is at the top: the page's ../ lead there
+      $.getJSON((document.body.getAttribute('data-base') || '') + 'registry-graph', function (g) {
         graph = g; byId = {}; adj = {}; parentOf = {};
         g.nodes.forEach(function (n) { byId[n.id] = n; adj[n.id] = []; });
         g.edges.forEach(function (e) {
@@ -120,23 +125,36 @@
       return els;
     }
 
-    function focus(id, keepPanel) {
-      if (!byId[id]) return;
-      focusId = id;
-      var ids = neighbourhood(id);
+    function draw(ids, centre) {
       cy.elements().remove();
-      cy.add(elements(ids, id));
+      cy.add(elements(ids, centre));
       cy.layout({
         name: window.cytoscapeFcose ? 'fcose' : 'cose', animate: true, animationDuration: 500, randomize: true, fit: true,
         padding: 30, nodeRepulsion: 9000, idealEdgeLength: 110, nodeSeparation: 80, packComponents: true,
         nestingFactor: 0.6, gravity: 0.3, numIter: 2500,
         stop: function () { cy.fit(cy.elements(), 30); if (cy.zoom() > FIT_ZOOM) { cy.zoom(FIT_ZOOM); cy.center(); } }
       }).run();
+    }
+
+    function focus(id, keepPanel) {
+      if (!byId[id]) return;
+      focusId = id;
+      var ids = neighbourhood(id);
+      draw(ids, id);
       $pane.find('.graph-focus').removeClass('hint').text(byId[id].id + ' ' + byId[id].name + ' · ' + (ids.length - 1) + ' related frame(s)');
       if (!keepPanel && onFocus) onFocus(id);
     }
 
-    cy.on('tap', 'node', function (ev) { focus(ev.target.id()); });
+    // every frame of the registry; the depth does not apply
+    function whole() {
+      wholeShown = true;
+      draw(graph.nodes.map(function (n) { return n.id; }), null);
+      $pane.find('.graph-focus').removeClass('hint').text(graph.nodes.length + ' generalized frame(s)');
+    }
+
+    function redraw() { if (focusId) focus(focusId, true); else if (wholeShown) whole(); }
+
+    cy.on('tap', 'node', function (ev) { if (onFocus) onFocus(ev.target.id()); else focus(ev.target.id()); });
     // a frame under the pointer: its lines named, the rest faded
     cy.on('mouseover', 'node', function (ev) {
       var n = ev.target, near = n.closedNeighborhood().union(n.ancestors()).union(n.descendants());
@@ -147,7 +165,11 @@
     cy.on('mouseover', 'edge', function (ev) { ev.target.addClass('labelled'); });
     cy.on('mouseout', 'edge', function (ev) { ev.target.removeClass('labelled'); });
 
-    $pane.find('.graph-depth').on('change', function () { depth = parseInt(this.value, 10) || 1; if (focusId) focus(focusId, true); });
+    $pane.find('.graph-depth').on('change', function () {
+      depth = parseInt(this.value, 10) || 1;
+      try { localStorage.setItem('frame-viewer-graph-depth', String(depth)); } catch (e) { }
+      redraw();
+    });
     legend();
 
     return {
@@ -158,10 +180,15 @@
         cy.resize();
         if (fit && cy.elements().length) { cy.fit(cy.elements(), 30); if (cy.zoom() > FIT_ZOOM) { cy.zoom(FIT_ZOOM); cy.center(); } }
       },
-      // a frame chosen elsewhere (the tree, a link): drawn in the middle once the graph is read
+      // the page's frame, drawn in the middle once the graph is read
       focus: function (id, keepPanel) {
         cy.resize();
         if (graph) focus(id, keepPanel); else load(function () { focus(id, keepPanel); });
+      },
+      // every frame, once the graph is read
+      whole: function () {
+        cy.resize();
+        if (graph) whole(); else load(whole);
       }
     };
   };

@@ -119,3 +119,14 @@ CLOB の列を読むと、H2 は読んだ値をファイルの中の一時的な
 - [x] 複製で移行：26 秒、37 表すべて行数・字数・行のハッシュが一致、22 列を変換、658 MB → 302 MB、控えの sha256 は本物と同じ
 - [x] 50 ページ：移行した複製と新しい Frame Viewer で、書き込み 0 回、大きさ・更新時刻とも変わらず、0.3 秒。比べに、移行前の複製と前の版（`ca22b59`）では 237 回・685 MB 書き、658 → 942 MB、79 秒
 - [x] Chromium の確かめ（全部 PASS、スクリプトなしの読み手も PASS）を移行した複製で行った
+
+# Workflows と Integrated frames もサーバが描くページにする（2026-11-19）
+
+利用者の判断：左の木は Sections と同じくサーバがリンクで描く（jstree はやめる）。jstree の絞り込みは検索の結果のページに替える。
+
+- [x] `/`（workflow の一覧）、`workflows/<name>`、`frames`（全ての汎化フレームの関係図）、`frames/<id>`（関係図をその汎化フレームを真ん中に描き、下に本文）
+- [x] 木は `NodeTree`：`TreeNode` の並びを、いまの対象までの枝だけ開いてリンクで描く。閉じた枝は `tree/frames/<id>` の JSON から差し込む。workflow の木は段が無いので全部を描く
+- [x] 検索の結果のページ `search?in=workflows|sections|frames&q=`。JSON の `search?tab=`、`tree?tab=`、パネルの断片 `workflow`・`registry-frame`、1 枚の画面 `index.html` と jstree を除く
+- [x] 汎化フレームの本文の名前（上下の汎化フレーム、関係の相手、具象フレームの節、規則の節）を、相対のふつうのリンクにする
+- [x] 関係図（cytoscape、fCoSE）・深さ・仕切りはそのまま。図の中の汎化フレームを押すとそのページへ移る。深さと図の高さは次のページへ持ち越す。`frames` では全ての汎化フレームを描く
+- [x] 単体テスト 29 本（新しい `NodeTreeTest` 4 本）。W206 の Pod で、本物の複製に汎化フレーム 5 つを書いたデータベースで Chromium の確かめ：Workflows・Integrated frames 39 項目、Sections 24 項目、全部 PASS

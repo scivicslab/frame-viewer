@@ -9,9 +9,9 @@
 <body class="page" data-works-dir="{worksDir}" data-base="{base}">
   <div class="topbar"><span class="brand">Frame Viewer</span>
     <span class="tabs">
-      <a href="{base}?tab=workflows" class="tab{#if tab == 'workflows'} active{/if}" title="0. the frame-making workflows">Workflows</a>
+      <a href="{base}./" class="tab{#if tab == 'workflows'} active{/if}" title="0. the frame-making workflows">Workflows</a>
       <a href="{base}sections" class="tab{#if tab == 'sections'} active{/if}" title="1. a book's table of contents as a tree, and its text cut into its sections">Sections</a>
-      <a href="{base}?tab=integrated" class="tab{#if tab == 'integrated'} active{/if}" title="the generalized concept tree: the concepts of a book across its sections, and the generalized concepts above them">Integrated frames</a>
+      <a href="{base}frames" class="tab{#if tab == 'frames'} active{/if}" title="the generalized concept tree: the concepts of a book across its sections, and the generalized concepts above them">Integrated frames</a>
     </span>
     <span class="hint">Every name in a page is a link to its own page.</span></div>
   <div class="layout page-layout">
@@ -22,8 +22,32 @@
       </form>
       <div class="tree">{tree.raw}</div>
     </div>
+    {#if graph}
+    <div class="right-col" data-focus="{focus}">
+      <div class="graph-pane">
+        <div class="graph-bar">
+          <span class="graph-focus hint">{#if focus}Its relations to other generalized frames; a frame clicked here opens its page.{#else}Every generalized frame and the relations between them; a frame clicked here opens its page.{/if}</span>
+          <label>depth <select class="graph-depth"><option>1</option><option>2</option><option>3</option></select></label>
+          <div class="graph-legend"></div>
+        </div>
+        <div class="graph"></div>
+      </div>
+      <div class="splitter" title="drag to change the heights of the drawing and the frame"></div>
+      <div class="panel">{body.raw}</div>
+    </div>
+    {#else}
     <div class="panel">{body.raw}</div>
+    {/if}
   </div>
   <script src="{base}pages.js?v={v}"></script>
+  {#if graph}
+  <script src="{base}vendor/jquery-3.7.1.min.js"></script>
+  <script src="{base}vendor/cytoscape/cytoscape.min.js"></script>
+  <script src="{base}vendor/cytoscape/layout-base.js"></script>
+  <script src="{base}vendor/cytoscape/cose-base.js"></script>
+  <script src="{base}vendor/cytoscape/cytoscape-fcose.js"></script>
+  <script src="{base}graph.js?v={v}"></script>
+  <script src="{base}frames.js?v={v}"></script>
+  {/if}
 </body>
 </html>

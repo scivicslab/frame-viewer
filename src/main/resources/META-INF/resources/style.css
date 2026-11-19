@@ -92,12 +92,12 @@ ul.frame-rules code { color: #777; font-size: 0.85em; }
 pre.rule-lisp { margin: 1px 0; font-size: 0.95em; white-space: pre-wrap; overflow-wrap: anywhere; background: #fafafa; padding: 1px 4px; max-width: 72em; }
 ul.frame-rules { list-style: none; }
 ul.pattern-breakdown { margin: 4px 0 8px; padding-left: 1.2em; }
-.layout[data-tab=integrated] .right-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.layout[data-tab=integrated] .graph-pane { height: 50%; display: flex; flex-direction: column; flex: none; overflow: hidden; }
-.layout[data-tab=integrated] .splitter { flex: none; height: 7px; cursor: row-resize; background: #e2e8f0; border-top: 1px solid #cbd5e0; border-bottom: 1px solid #cbd5e0; }
-.layout[data-tab=integrated] .splitter:hover, body.dragging-split .layout[data-tab=integrated] .splitter { background: #90cdf4; }
+.layout .right-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.layout .graph-pane { height: 50%; display: flex; flex-direction: column; flex: none; overflow: hidden; }
+.layout .splitter { flex: none; height: 7px; cursor: row-resize; background: #e2e8f0; border-top: 1px solid #cbd5e0; border-bottom: 1px solid #cbd5e0; }
+.layout .splitter:hover, body.dragging-split .layout .splitter { background: #90cdf4; }
 body.dragging-split { cursor: row-resize; user-select: none; }
-.layout[data-tab=integrated] .right-col .panel { flex: 1; min-height: 0; }
+.layout .right-col .panel { flex: 1; min-height: 0; }
 .graph-bar { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 0.9em; }
 .graph-bar label { margin-right: 10px; }
 .graph-focus { font-weight: bold; margin-left: 6px; }
@@ -157,3 +157,4 @@ ul.toc a:hover, .toc-head a:hover { text-decoration: underline; }
 ul.toc a.current, .toc-head a.current { background: #357; color: #fff; border-radius: 3px; padding: 0 3px; }
 ul.search-hits li { margin: 3px 0; }
 .tab-page { margin-right: 4px; padding: 3px 10px; border: 1px solid #ccc; border-radius: 4px; text-decoration: none; color: #333; font-size: 0.9em; }
+ol.workflow-list li { margin: 4px 0; }

@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 
 import io.quarkus.qute.Template;
-import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Produces;
@@ -20,18 +19,15 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
- * The page and the routes it calls: one tree per tab and one panel per kind of item. The library is read from disk on every request, so an edited frame shows
- * on the next click. Every link the page makes is relative: the AI workspace strips its own path prefix before a
- * request reaches this tool.
+ * The pages of the viewer, one per workflow, book, table-of-contents node and generalized frame, each with its own URL and
+ * drawn by the server, and the few routes their scripts call (a closed branch of the tree, the registry's drawing). Every
+ * link a page makes is relative: the AI workspace strips its own path prefix before a request reaches this tool.
  */
 @jakarta.ws.rs.Path("/")
 public class ViewerResource {
 
     /** When this process started: the version the page's links to its style sheet and scripts carry. */
     static final String STARTED = Long.toString(System.currentTimeMillis(), 36);
-
-    @Inject
-    Template index;
 
     /** The pages the server draws: the tabs above, the search box and the tree on the left, the page's text on the right. */
     @Inject
@@ -49,46 +45,126 @@ public class ViewerResource {
     @ConfigProperty(name = "frame-viewer.books-db")
     String booksDb;
 
+    /** What the search box of each tab looks in, by the tab's value of {@code in}. */
+    static final Map<String, String> SEARCHED = Map.of(
+            "workflows", "search the workflows: names, YAML text",
+            "sections", "search the books: numbers, titles, text, concepts, rule files",
+            "frames", "search the frames: ids, names, concepts, questions");
+
+    /** The page at the top ({@code /}): the frame-making workflows, in the order they run. */
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public TemplateInstance page() {
-        // the page builds code-server links from absolute paths, so it is told where the works directory is
-        // the page's style sheet and scripts are served as immutable, so a browser keeps them a day; their links carry the
-        // time this process started, and a restarted viewer is fetched anew
-        return index.data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString()).data("v", STARTED);
+    public Response top() {
+        String base = Html.base(1);
+        WorkflowPanel w = workflowPanel();
+        StringBuilder body = new StringBuilder("<h2>Workflows</h2><p class=\"hint\">The workflows that make frames from a book, in the order they run.</p><ol class=\"workflow-list\">");
+        for (TreeNode n : w.tree()) {
+            String d = n.li_attr().get("title");
+            body.append("<li><a href=\"").append(Html.esc(base + Html.path("workflows", n.li_attr().get("data-workflow")))).append("\">")
+                .append(Html.esc(n.li_attr().get("data-workflow"))).append("</a>").append(d == null || d.isEmpty() ? "" : " <span class=\"hint\">" + Html.esc(d) + "</span>")
+                .append("</li>");
+        }
+        body.append("</ol>");
+        return page(200, "workflows", "Workflows", "", workflowTree(w).html(null, base), body.toString(), base, null);
     }
 
-    /** @param tab the tab of the page at the top whose tree is wanted: {@code workflows} or {@code integrated} */
+    /** The page {@code workflows/<name>}: one frame-making workflow. */
     @GET
-    @jakarta.ws.rs.Path("tree")
+    @jakarta.ws.rs.Path("workflows/{name}")
+    @Produces(MediaType.TEXT_HTML)
+    public Response workflowPage(@PathParam("name") String name) {
+        String base = Html.base(2);
+        WorkflowPanel w = workflowPanel();
+        NodeTree tree = workflowTree(w);
+        if (!tree.has("w:" + name)) {
+            return page(404, "workflows", "Not found", "", tree.html(null, base), "<p class=\"hint\">No workflow " + Html.esc(name) + ".</p>", base, null);
+        }
+        return page(200, "workflows", name, "", tree.html("w:" + name, base), w.render(name), base, null);
+    }
+
+    /** The workflows as the left tree: one item each, numbered in the order they run. */
+    static NodeTree workflowTree(WorkflowPanel w) {
+        return new NodeTree(w.tree(), n -> Html.path("workflows", n.li_attr().get("data-workflow")), null);
+    }
+
+    /** The page {@code frames}: every generalized frame of the registry and the relations between them, drawn. */
+    @GET
+    @jakarta.ws.rs.Path("frames")
+    @Produces(MediaType.TEXT_HTML)
+    public Response framesPage() {
+        String base = Html.base(1);
+        return withRegistry(r -> {
+            String body = r.frames().isEmpty()
+                    ? "<h2>Generalized frames</h2><p class=\"hint\">(no generalized frame yet: book-generalize.yaml has not been run)</p>"
+                    : "<h2>Generalized frames</h2><p class=\"hint\">" + r.frames().size() + " generalized frames. Above, all of them and their relations; "
+                            + "a frame clicked in the drawing or in the tree opens its page.</p>";
+            return page(200, "frames", "Generalized frames", "", registryTree(r).html(null, base), body, base, "");
+        });
+    }
+
+    /** The page {@code frames/<id>}: one generalized frame, its relations drawn above it with it in the middle. */
+    @GET
+    @jakarta.ws.rs.Path("frames/{id}")
+    @Produces(MediaType.TEXT_HTML)
+    public Response framePage(@PathParam("id") String id) {
+        String base = Html.base(2);
+        return withRegistry(r -> {
+            NodeTree tree = registryTree(r);
+            if (!r.has(id)) {
+                return page(404, "frames", "Not found", "", tree.html(null, base), "<p class=\"hint\">No generalized frame " + Html.esc(id) + ".</p>", base, null);
+            }
+            return page(200, "frames", id + " " + tree.node("r:" + id).text(), "", tree.html("r:" + id, base), r.frame(id, base), base, id);
+        });
+    }
+
+    /** The registry's is-a tree as the left tree: the frames at the top always drawn, a closed branch read from {@code tree/frames/<id>}. */
+    static NodeTree registryTree(RegistryPanel r) {
+        return new NodeTree(r.tree(), n -> n.li_attr().containsKey("data-frame-id") ? Html.path("frames", n.li_attr().get("data-frame-id")) : "frames",
+                n -> n.li_attr().containsKey("data-frame-id") ? Html.path("tree", "frames", n.li_attr().get("data-frame-id")) : "frames");
+    }
+
+    /** The frames right under one generalized frame, for the left tree. */
+    @GET
+    @jakarta.ws.rs.Path("tree/frames/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<TreeNode> tree(@QueryParam("tab") String tab) {
-        return "integrated".equals(tab) ? withRegistry(RegistryPanel::tree) : workflowPanel().tree();
+    public Response treeOfFrame(@PathParam("id") String id) {
+        List<NodeTree.Entry> kids = withRegistry(r -> registryTree(r).children("r:" + id));
+        if (kids == null) return Response.status(404).type(MediaType.APPLICATION_JSON_TYPE).entity(List.of()).build();
+        return Response.ok(kids, MediaType.APPLICATION_JSON_TYPE).build();
     }
 
     /**
-     * The search. With {@code in}, the page of the results ({@code search?in=sections&q=...}): each node that holds every
-     * word of {@code q}, a link to its page, with where it matched. With {@code tab}, the tabs of the page at the top
-     * (Workflows, Integrated frames) are given the nodes of their tree as JSON, which that page shows with the nodes above
-     * them; this goes when those tabs become pages.
+     * The page of a search's results in one tab ({@code search?in=workflows|sections|frames&q=...}): each item that holds
+     * every word of {@code q}, a link to its page, with where it matched.
      */
     @GET
     @jakarta.ws.rs.Path("search")
-    @Produces({MediaType.TEXT_HTML, MediaType.APPLICATION_JSON})
-    public Response search(@QueryParam("in") String in, @QueryParam("tab") String tab, @QueryParam("q") String q) {
+    @Produces(MediaType.TEXT_HTML)
+    public Response search(@QueryParam("in") String in, @QueryParam("q") String q) {
         Search s = new Search(q);
-        if (in != null) {
-            String query = q == null ? "" : q.strip();
-            // the books are taken once for the whole page: while the database file changes, each take reads every book again
-            Loaded l = loaded();
-            BookPanel books = l.panel();
-            String body = s.blank() ? "<h2>Search the books</h2><p class=\"hint\">Give the words to look for in the box above the tree.</p>"
-                    : books.searchBody(query, searchSections(books, s), Html.base(1));
-            return page(200, "sections", "Search: " + query, query, books.tree(null, null, Html.base(1)), body, Html.base(1));
-        }
-        List<Search.Hit> hits = s.blank() ? List.of()
-                : "integrated".equals(tab) ? withRegistry(p -> p.search(s)) : workflowPanel().search(s);
-        return Response.ok(hits, MediaType.APPLICATION_JSON_TYPE).build();
+        String query = q == null ? "" : q.strip();
+        String base = Html.base(1);
+        String tab = SEARCHED.containsKey(in) ? in : "sections";
+        String none = "<p class=\"hint\">Give the words to look for in the box above the tree.</p>";
+        return switch (tab) {
+            case "workflows" -> {
+                WorkflowPanel w = workflowPanel();
+                NodeTree tree = workflowTree(w);
+                yield page(200, tab, "Search: " + query, query, tree.html(null, base),
+                        s.blank() ? "<h2>Search the workflows</h2>" + none : tree.searchBody("Search the workflows", query, w.search(s), base), base, null);
+            }
+            case "frames" -> withRegistry(r -> {
+                NodeTree tree = registryTree(r);
+                return page(200, tab, "Search: " + query, query, tree.html(null, base),
+                        s.blank() ? "<h2>Search the frames</h2>" + none : tree.searchBody("Search the frames", query, r.search(s), base), base, null);
+            });
+            default -> {
+                // the books are taken once for the whole page: each take may read every book again
+                BookPanel books = loaded().panel();
+                yield page(200, tab, "Search: " + query, query, books.tree(null, null, base),
+                        s.blank() ? "<h2>Search the books</h2>" + none : books.searchBody(query, searchSections(books, s), base), base, null);
+            }
+        };
     }
 
     /** The page {@code sections}: the books. */
@@ -98,7 +174,7 @@ public class ViewerResource {
     public Response sections() {
         String base = Html.base(1);
         BookPanel books = bookPanel();
-        return page(200, "sections", "Books", "", books.tree(null, null, base), books.booksBody(base), base);
+        return page(200, "sections", "Books", "", books.tree(null, null, base), books.booksBody(base), base, null);
     }
 
     /** The page {@code sections/<book>}: one book and the nodes right under it. */
@@ -109,7 +185,7 @@ public class ViewerResource {
         String base = Html.base(2);
         BookPanel books = bookPanel();
         if (!books.has(book, null)) return notFound(books, "No book " + book + " in the database.", base);
-        return page(200, "sections", book, "", books.tree(book, null, base), books.bookBody(book, base), base);
+        return page(200, "sections", book, "", books.tree(book, null, base), books.bookBody(book, base), base, null);
     }
 
     /**
@@ -124,7 +200,7 @@ public class ViewerResource {
         Loaded l = loaded();
         BookPanel books = l.panel();
         if (!books.has(book, number)) return notFound(books, "No node " + number + " in " + book + ".", base);
-        return page(200, "sections", number + " · " + book, "", books.tree(book, number, base), sectionBody(l, book, number, view, base), base);
+        return page(200, "sections", number + " · " + book, "", books.tree(book, number, base), sectionBody(l, book, number, view, base), base, null);
     }
 
     /** One node of a book's left tree as the page's script reads it: its label, its page's path, and its children's path when it has any. */
@@ -154,13 +230,20 @@ public class ViewerResource {
     }
 
     private Response notFound(BookPanel books, String message, String base) {
-        return page(404, "sections", "Not found", "", books.tree(null, null, base), "<p class=\"hint\">" + Html.esc(message) + "</p>", base);
+        return page(404, "sections", "Not found", "", books.tree(null, null, base), "<p class=\"hint\">" + Html.esc(message) + "</p>", base, null);
     }
 
-    /** A page drawn with the template {@code page.html}, in the tab given. */
-    private Response page(int status, String tab, String title, String q, String tree, String body, String base) {
-        String html = page.data("title", title).data("tab", tab).data("q", q).data("placeholder", "search the books: numbers, titles, text, concepts, rule files")
-                .data("tree", tree).data("body", body).data("base", base).data("v", STARTED)
+    /**
+     * A page drawn with the template {@code page.html}, in the tab given.
+     *
+     * @param graph null for a page without the drawing of the registry; else the generalized frame drawn in its middle,
+     *              or {@code ""} for every frame
+     */
+    private Response page(int status, String tab, String title, String q, String tree, String body, String base, String graph) {
+        // the page builds code-server links from absolute paths, so it is told where the works directory is; its style sheet
+        // and scripts carry the time this process started, so a restarted viewer is fetched anew
+        String html = page.data("title", title).data("tab", tab).data("q", q).data("placeholder", SEARCHED.get(tab))
+                .data("tree", tree).data("body", body).data("base", base).data("v", STARTED).data("graph", graph != null).data("focus", graph == null ? "" : graph)
                 .data("worksDir", Path.of(worksDir).toAbsolutePath().normalize().toString()).render();
         return Response.status(status).type(MediaType.TEXT_HTML_TYPE.withCharset("UTF-8")).entity(html).build();
     }
@@ -210,15 +293,6 @@ public class ViewerResource {
         }
         return l.panel().section(book, number, "rst".equals(view) ? "rst" : "md", base, rules, listed, pattern, items,
                 new BookPanel.FrameData(groups == null ? List.of() : groups, causes, properties, relations, similar));
-    }
-
-    /** The Integrated frames tab's panel: one generalized frame of the registry. */
-    @GET
-    @jakarta.ws.rs.Path("registry-frame")
-    @Produces(MediaType.TEXT_HTML)
-    public String registryFrame(@QueryParam("id") String id) {
-        if (id == null || id.isBlank()) return "<p class=\"hint\">No frame given.</p>";
-        return withRegistry(p -> p.frame(id));
     }
 
     /** The Relations tab's graph: the generalized frames of the registry, the is-a tree and the relations between frames. */
@@ -356,15 +430,6 @@ public class ViewerResource {
             books.add(new BookPanel.Book(b, store.dirOf(b), store.outline(b), store.sections(b), store.sectionsWithRules(b), store.judgedConcepts(b), store.relations(b), store.frameConcepts(b), store.patterns(b), store.groups(b)));
         }
         return new BookPanel(books, Path.of(worksDir).toAbsolutePath().normalize().toString());
-    }
-
-    /** The workflows tab's panel: one frame-making workflow. */
-    @GET
-    @jakarta.ws.rs.Path("workflow")
-    @Produces(MediaType.TEXT_HTML)
-    public String workflow(@QueryParam("name") String name) {
-        if (name == null || name.isBlank()) return "<p class=\"hint\">No workflow given.</p>";
-        return workflowPanel().render(name);
     }
 
     /** Reads the frame-making workflows named in the configuration, from their directory, on every request. */

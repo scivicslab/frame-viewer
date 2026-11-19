@@ -100,14 +100,28 @@ public final class RegistryPanel {
         return its == null ? "" : " · " + its.size() + " items";
     }
 
-    private String link(String id) {
+    /** A plain link to a generalized frame's page. */
+    private String link(String id, String base) {
         BookStore.RegistryFrame f = byId.get(id);
         String text = f == null ? id : id + " " + f.name();
-        return "<a href=\"#\" class=\"frame-id-link\" data-frame-id=\"" + Html.esc(id) + "\">" + Html.esc(text) + "</a>";
+        return "<a href=\"" + Html.esc(base + Html.path("frames", id)) + "\">" + Html.esc(text) + "</a>";
     }
 
-    /** @return the panel of one generalized frame */
-    public String frame(String id) {
+    /** Whether the registry holds a generalized frame with this id. */
+    public boolean has(String id) {
+        return byId.containsKey(id);
+    }
+
+    /** The registry's generalized frames, in its order. */
+    public List<BookStore.RegistryFrame> frames() {
+        return frames;
+    }
+
+    /**
+     * @param base the {@code ../} leading from the page back to the top, put before every link to another page
+     * @return the text of one generalized frame's page
+     */
+    public String frame(String id, String base) {
         BookStore.RegistryFrame f = byId.get(id);
         if (f == null) return "<p class=\"hint\">No generalized frame " + Html.esc(id) + ".</p>";
         StringBuilder sb = new StringBuilder();
@@ -115,8 +129,8 @@ public final class RegistryPanel {
         sb.append("<div class=\"raw-path\">a generalized frame · id ").append(Html.esc(f.id())).append("</div>");
 
         sb.append("<h3>In the is-a tree</h3><ul class=\"relation-children\">");
-        sb.append("<li>a kind of: ").append(f.parent() == null ? "<span class=\"hint\">(the top)</span>" : link(f.parent())).append("</li>");
-        List<String> kids = frames.stream().filter(x -> f.id().equals(x.parent())).map(x -> link(x.id())).toList();
+        sb.append("<li>a kind of: ").append(f.parent() == null ? "<span class=\"hint\">(the top)</span>" : link(f.parent(), base)).append("</li>");
+        List<String> kids = frames.stream().filter(x -> f.id().equals(x.parent())).map(x -> link(x.id(), base)).toList();
         sb.append("<li>its kinds: ").append(kids.isEmpty() ? "<span class=\"hint\">(none)</span>" : String.join(" · ", kids)).append("</li></ul>");
 
         // the network beside the tree: what the sections said of this frame's concepts and other frames' concepts
@@ -128,8 +142,8 @@ public final class RegistryPanel {
         if (!out.isEmpty() || !in.isEmpty()) {
             sb.append("<h3>Its relations to other frames</h3><ul class=\"relation-children\">");
             for (var e : out.entrySet()) sb.append("<li>").append(Html.esc(f.name())).append(" <b>").append(Html.esc(e.getKey())).append("</b> ")
-                    .append(String.join(" · ", e.getValue().stream().distinct().map(this::link).toList())).append("</li>");
-            for (var e : in.entrySet()) sb.append("<li>").append(String.join(" · ", e.getValue().stream().distinct().map(this::link).toList()))
+                    .append(String.join(" · ", e.getValue().stream().distinct().map(x -> link(x, base)).toList())).append("</li>");
+            for (var e : in.entrySet()) sb.append("<li>").append(String.join(" · ", e.getValue().stream().distinct().map(x -> link(x, base)).toList()))
                     .append(" <b>").append(Html.esc(e.getKey())).append("</b> ").append(Html.esc(f.name())).append("</li>");
             sb.append("</ul>");
         }
@@ -137,8 +151,7 @@ public final class RegistryPanel {
         sb.append("<h3>Its concrete frames</h3><div class=\"frame-folded\">");
         List<String> links = new ArrayList<>();
         for (BookStore.RegistryMember m : f.members()) {
-            // the Integrated frames tab is still the page at the top, so the section's page is reached without any ../
-            links.add(Html.sectionLink("", m.book(), m.number(), m.number()) + " " + Html.esc(m.concept()));
+            links.add(Html.sectionLink(base, m.book(), m.number(), m.number()) + " " + Html.esc(m.concept()));
         }
         sb.append(String.join(" · ", links)).append("</div>");
 
@@ -150,7 +163,7 @@ public final class RegistryPanel {
             sb.append("<table class=\"concepts frame-items\"><tr><th>the question it answers</th><th>its rst-on-lisp rules</th></tr>");
             for (BookStore.FrameItem it : its) {
                 sb.append("<tr><td class=\"concept\">").append(Html.esc(it.question())).append("</td><td class=\"rules\">");
-                for (String ref : it.rules()) sb.append(rule(ref));
+                for (String ref : it.rules()) sb.append(rule(ref, base));
                 sb.append("</td></tr>");
             }
             sb.append("</table>");
@@ -161,19 +174,19 @@ public final class RegistryPanel {
             BookStore.FrameConcept c = conceptOf.apply(m.book(), m.number() + "\t" + m.concept());
             if (c == null || c.rules().isEmpty()) continue;
             sb.append("<div class=\"frame-kind\">").append(Html.esc(m.concept())).append(" · ").append(Html.esc(m.number())).append("</div><ul class=\"frame-rules\">");
-            for (BookStore.FrameRule r : c.rules()) sb.append("<li>").append(rule(m.book() + "|" + m.number() + ":" + r.rule())).append("</li>");
+            for (BookStore.FrameRule r : c.rules()) sb.append("<li>").append(rule(m.book() + "|" + m.number() + ":" + r.rule(), base)).append("</li>");
             sb.append("</ul>");
         }
         return sb.toString();
     }
 
-    /** @return one rule, named "book|number:rule", as its section's rule file writes it, with the section it comes from */
-    private String rule(String ref) {
+    /** @return one rule, named "book|number:rule", as its section's rule file writes it, with a link to the section it comes from */
+    private String rule(String ref, String base) {
         int bar = ref.indexOf('|'), colon = ref.indexOf(':', bar + 1);
         if (bar < 0 || colon < 0) return "<pre class=\"rule-lisp\">" + Html.esc(ref) + "</pre>";
         String book = ref.substring(0, bar), number = ref.substring(bar + 1, colon), name = ref.substring(colon + 1);
         String file = rulesOf.apply(book, number);
         String form = file == null ? null : RuleFile.formOf(file, name);
-        return "<pre class=\"rule-lisp\"><span class=\"hint\">" + Html.esc(number) + "</span> " + Html.esc(form != null ? form : name) + "</pre>";
+        return "<pre class=\"rule-lisp\"><span class=\"hint\">" + Html.sectionLink(base, book, number, number) + "</span> " + Html.esc(form != null ? form : name) + "</pre>";
     }
 }
